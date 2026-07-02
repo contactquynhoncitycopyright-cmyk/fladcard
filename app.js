@@ -318,3 +318,51 @@ $("#wordForm").onsubmit = async e => {
 
 fillLevels();
 refreshUser().then(loadWords);
+
+
+async function downloadAdminFile(url, filename) {
+  try {
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Không thể tải file");
+    }
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    $("#csvImportMessage").textContent = err.message;
+  }
+}
+
+$("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/template.csv", "lingoplay-vocabulary-template.csv");
+$("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");
+$("#csvImportForm").onsubmit = async e => {
+  e.preventDefault();
+  const file = $("#csvFile").files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("update_existing", $("#updateExisting").checked ? "true" : "false");
+  $("#csvImportMessage").textContent = "Đang nhập dữ liệu...";
+  $("#csvImportErrors").innerHTML = "";
+  try {
+    const res = await fetch("/api/admin/words/import", { method: "POST", body: fd, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Nhập CSV thất bại");
+    $("#csvImportMessage").textContent = `Hoàn tất: thêm ${data.added}, cập nhật ${data.updated}, bỏ qua ${data.skipped}. Tổng kho: ${data.total} từ.`;
+    if (data.errors?.length) {
+      $("#csvImportErrors").innerHTML = `<b>Một số dòng lỗi:</b>${data.errors.map(x => `<div>Dòng ${x.line}: ${escapeHtml(x.error)}</div>`).join("")}`;
+    }
+    e.currentTarget.reset();
+    await loadAdmin();
+    await loadWords();
+  } catch (err) {
+    $("#csvImportMessage").textContent = err.message;
+  }
+};

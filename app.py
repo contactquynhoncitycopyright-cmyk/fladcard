@@ -1,4 +1,4 @@
-import os, time, json, urllib.parse, urllib.request
+import os, time, json, urllib.parse, urllib.request, csv, io
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session
@@ -22,7 +22,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE', '0') == '1',
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-    MAX_CONTENT_LENGTH=1024 * 1024,
+    MAX_CONTENT_LENGTH=5 * 1024 * 1024,
 )
 db = SQLAlchemy(app)
 
@@ -50,6 +50,30 @@ class AuditLog(db.Model):
     id=db.Column(db.Integer, primary_key=True); user_id=db.Column(db.Integer, nullable=True)
     action=db.Column(db.String(100), nullable=False); detail=db.Column(db.Text, default='')
     created_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+VALID_LEVELS = {
+    "english": {"A1","A2","B1","B2","C1","C2"},
+    "chinese": {"HSK1","HSK2","HSK3","HSK4","HSK5","HSK6"},
+}
+CSV_FIELDS = ["language","level","word","pronunciation","meaning","example","topic"]
+
+def normalize_csv_row(row):
+    cleaned = {k: str(row.get(k, "") or "").strip() for k in CSV_FIELDS}
+    cleaned["language"] = cleaned["language"].lower()
+    cleaned["level"] = cleaned["level"].upper().replace(" ", "")
+    if cleaned["language"] not in VALID_LEVELS:
+        return None, "Ngôn ngữ phải là english hoặc chinese"
+    if cleaned["level"] not in VALID_LEVELS[cleaned["language"]]:
+        return None, "Cấp độ không hợp lệ cho ngôn ngữ đã chọn"
+    if not cleaned["word"] or not cleaned["meaning"]:
+        return None, "Thiếu word hoặc meaning"
+    cleaned["word"] = cleaned["word"][:255]
+    cleaned["pronunciation"] = cleaned["pronunciation"][:255]
+    cleaned["meaning"] = cleaned["meaning"][:2000]
+    cleaned["example"] = cleaned["example"][:2000]
+    cleaned["topic"] = (cleaned["topic"] or "nhập CSV")[:100]
+    return cleaned, None
 
 RATE={}
 def limited(bucket, max_calls=30, window=60):
@@ -243,6 +267,58 @@ def add_word():
     try: db.session.add(w); db.session.commit()
     except Exception: db.session.rollback(); return jsonify(error='Từ này đã tồn tại ở cấp độ đã chọn'),409
     return jsonify(item=word_json(w)),201
+
+@app.get('/api/admin/words/template.csv')
+@admin_required
+def download_word_template():
+    sample = [
+        {"language":"english","level":"A1","word":"apple","pronunciation":"/ˈæp.əl/","meaning":"quả táo","example":"I eat an apple every day.","topic":"food"},
+        {"language":"chinese","level":"HSK1","word":"你好","pronunciation":"nǐ hǎo","meaning":"xin chào","example":"你好，很高兴认识你。","topic":"greeting"},
+    ]
+    out=io.StringIO(); writer=csv.DictWriter(out,fieldnames=CSV_FIELDS); writer.writeheader(); writer.writerows(sample)
+    return app.response_class(out.getvalue(), mimetype='text/csv; charset=utf-8', headers={'Content-Disposition':'attachment; filename=lingoplay-vocabulary-template.csv'})
+
+@app.get('/api/admin/words/export.csv')
+@admin_required
+def export_words_csv():
+    out=io.StringIO(); writer=csv.DictWriter(out,fieldnames=CSV_FIELDS); writer.writeheader()
+    for w in Word.query.order_by(Word.language,Word.level,Word.word).all():
+        writer.writerow({k:getattr(w,k,'') or '' for k in CSV_FIELDS})
+    return app.response_class(out.getvalue(), mimetype='text/csv; charset=utf-8', headers={'Content-Disposition':'attachment; filename=lingoplay-vocabulary-export.csv'})
+
+@app.post('/api/admin/words/import')
+@admin_required
+@limited('csv-import',6,300)
+def import_words_csv():
+    f=request.files.get('file')
+    if not f or not f.filename.lower().endswith('.csv'):
+        return jsonify(error='Hãy chọn file CSV hợp lệ'),400
+    update_existing=str(request.form.get('update_existing','false')).lower() in ('1','true','yes','on')
+    try:
+        raw=f.read().decode('utf-8-sig')
+    except UnicodeDecodeError:
+        return jsonify(error='File phải dùng mã UTF-8'),400
+    reader=csv.DictReader(io.StringIO(raw))
+    if not reader.fieldnames or not {'language','level','word','meaning'}.issubset({x.strip() for x in reader.fieldnames}):
+        return jsonify(error='CSV thiếu cột bắt buộc: language, level, word, meaning'),400
+    added=updated=skipped=0; errors=[]
+    for line_no,row in enumerate(reader,start=2):
+        data,err=normalize_csv_row(row)
+        if err:
+            if len(errors)<30: errors.append({'line':line_no,'error':err})
+            skipped+=1; continue
+        old=Word.query.filter(func.lower(Word.word)==data['word'].lower(),Word.language==data['language'],Word.level==data['level']).first()
+        if old:
+            if update_existing:
+                old.pronunciation=data['pronunciation']; old.meaning=data['meaning']; old.example=data['example']; old.topic=data['topic']; updated+=1
+            else: skipped+=1
+            continue
+        db.session.add(Word(**data)); added+=1
+        if (added+updated)%300==0: db.session.flush()
+    db.session.add(AuditLog(user_id=current_user().id,action='import_words_csv',detail=json.dumps({'filename':f.filename,'added':added,'updated':updated,'skipped':skipped},ensure_ascii=False)))
+    db.session.commit()
+    return jsonify(ok=True,added=added,updated=updated,skipped=skipped,errors=errors,total=Word.query.count())
+
 @app.delete('/api/admin/words/<int:wid>')
 @admin_required
 def delete_word(wid):

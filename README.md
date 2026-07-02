@@ -37,3 +37,19 @@ Tài khoản thử:
 - Cấu hình Render, Docker, `.env.example`, health check.
 
 Lưu ý: API miễn phí có thể chậm hoặc giới hạn tạm thời. Kho học, đăng nhập và trò chơi nội bộ vẫn hoạt động.
+
+
+## Nhập nhiều từ vựng bằng CSV
+
+1. Đăng nhập tài khoản admin.
+2. Mở **Quản trị**.
+3. Ở mục **Nhập từ vựng hàng loạt**, chọn file CSV UTF-8.
+4. Có thể dùng `vocabulary-starter-240.csv` hoặc `vocabulary-template.csv` trong bộ mã nguồn.
+5. Hệ thống tự kiểm tra ngôn ngữ/cấp độ, bỏ qua từ trùng và báo dòng lỗi.
+6. Có nút xuất toàn bộ kho từ ra CSV để sao lưu.
+
+Cột CSV: `language,level,word,pronunciation,meaning,example,topic`.
+
+Cấp hợp lệ:
+- English: A1, A2, B1, B2, C1, C2
+- Chinese: HSK1, HSK2, HSK3, HSK4, HSK5, HSK6

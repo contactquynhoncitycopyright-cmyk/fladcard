@@ -298,6 +298,31 @@
           <div id="adminMessage" class="form-message"></div>
         </form>
 
+        <div class="csv-panel glass-panel">
+          <div class="panel-heading">
+            <span class="panel-icon">⇧</span>
+            <div>
+              <h3>Nhập từ vựng hàng loạt</h3>
+              <p>Tải file CSV để thêm hàng trăm hoặc hàng nghìn từ trong một lần.</p>
+            </div>
+          </div>
+          <form id="csvImportForm" class="csv-import-form">
+            <label class="file-drop">
+              <input id="csvFile" name="file" type="file" accept=".csv,text/csv" required />
+              <span>Chọn file CSV UTF-8</span>
+              <small>Tối đa 5 MB. Cột bắt buộc: language, level, word, meaning.</small>
+            </label>
+            <label class="check-row"><input id="updateExisting" type="checkbox" /> Cập nhật từ đã tồn tại</label>
+            <div class="csv-actions">
+              <button class="btn btn-primary" type="submit">Nhập vào hệ thống</button>
+              <button class="btn btn-secondary" id="downloadTemplateBtn" type="button">Tải file mẫu</button>
+              <button class="btn btn-secondary" id="exportWordsBtn" type="button">Xuất toàn bộ CSV</button>
+            </div>
+            <div id="csvImportMessage" class="form-message"></div>
+            <div id="csvImportErrors" class="csv-errors"></div>
+          </form>
+        </div>
+
         <div class="user-panel glass-panel">
           <div class="panel-heading">
             <span class="panel-icon">◎</span>
