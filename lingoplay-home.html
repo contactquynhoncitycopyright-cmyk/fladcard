@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>LingoPlay - Học ngoại ngữ</title>
+  <link rel="stylesheet" href="./style.css?v=3" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="ambient ambient-c"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#" data-go="home">
+      <div class="brand-mark">
+        <span>LP</span>
+      </div>
+      <div class="brand-copy">
+        <strong>LingoPlay</strong>
+        <small>Learn. Play. Grow.</small>
+      </div>
+    </a>
+
+    <nav class="main-nav">
+      <button class="nav-btn active" data-view="home"><span>⌂</span>Trang chủ</button>
+      <button class="nav-btn" data-view="learn"><span>▣</span>Học từ</button>
+      <button class="nav-btn" data-view="lookup"><span>⌕</span>Tra từ & Dịch</button>
+      <button class="nav-btn" data-view="phrases"><span>✦</span>Cụm nói</button>
+      <button class="nav-btn" data-view="game"><span>◆</span>Trò chơi</button>
+      <button class="nav-btn admin-only hidden" data-view="admin"><span>⚙</span>Quản trị</button>
+    </nav>
+
+    <div class="account-area">
+      <div id="userBadge" class="user-pill hidden"></div>
+      <button id="authBtn" class="btn btn-primary btn-small">Đăng nhập</button>
+      <button id="logoutBtn" class="btn btn-ghost btn-small hidden">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section id="homeView" class="view active">
+      <section class="hero glass-panel">
+        <div class="hero-copy">
+          <div class="eyebrow">NỀN TẢNG HỌC NGOẠI NGỮ HIỆN ĐẠI</div>
+          <h1>Học ngoại ngữ<br><span>nhẹ nhàng hơn mỗi ngày</span></h1>
+          <p>
+            Kết hợp từ vựng, hội thoại, trò chơi và theo dõi tiến độ trong một giao diện trực quan,
+            dễ dùng trên cả máy tính lẫn điện thoại.
+          </p>
+
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-large" data-go="learn">Bắt đầu học ngay</button>
+            <button class="btn btn-soft btn-large" id="openRegister">Tạo tài khoản</button>
+          </div>
+
+          <div class="hero-metrics">
+            <div class="metric">
+              <strong id="statWords">0</strong>
+              <span>Từ vựng</span>
+            </div>
+            <div class="metric">
+              <strong>12</strong>
+              <span>Cấp độ</span>
+            </div>
+            <div class="metric">
+              <strong>2</strong>
+              <span>Ngôn ngữ</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="visual-grid"></div>
+          <div class="language-card card-en">
+            <span class="flag">EN</span>
+            <div>
+              <b>Hello!</b>
+              <small>Xin chào</small>
+            </div>
+          </div>
+          <div class="language-card card-zh">
+            <span class="flag">中</span>
+            <div>
+              <b>你好</b>
+              <small>Nǐ hǎo</small>
+            </div>
+          </div>
+          <div class="xp-card">
+            <span>Tiến độ hôm nay</span>
+            <strong>+120 XP</strong>
+            <div class="xp-bar"><i></i></div>
+          </div>
+          <div class="mascot-circle">
+            <div class="mascot-face">🦊</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="quick-section">
+        <div class="section-title">
+          <div>
+            <span class="section-kicker">BẮT ĐẦU NHANH</span>
+            <h2>Chọn cách học phù hợp</h2>
+          </div>
+          <p>Mỗi nội dung đều được thiết kế ngắn gọn, dễ hiểu và có thể luyện tập ngay.</p>
+        </div>
+
+        <div class="quick-grid">
+          <article class="quick-card glass-panel" data-go="learn">
+            <div class="quick-icon purple">Aa</div>
+            <div class="quick-content">
+              <h3>Học từ vựng</h3>
+              <p>Từ mới theo cấp độ, có nghĩa, phiên âm và câu ví dụ.</p>
+              <span>Khám phá ngay →</span>
+            </div>
+          </article>
+
+          <article class="quick-card glass-panel" data-go="phrases">
+            <div class="quick-icon teal">✦</div>
+            <div class="quick-content">
+              <h3>Cụm nói thực tế</h3>
+              <p>Luyện những mẫu câu thường gặp trong học tập và cuộc sống.</p>
+              <span>Luyện giao tiếp →</span>
+            </div>
+          </article>
+
+          <article class="quick-card glass-panel" data-go="game">
+            <div class="quick-icon orange">◆</div>
+            <div class="quick-content">
+              <h3>Trò chơi ghi nhớ</h3>
+              <p>Ôn tập từ vựng theo cách vui hơn và nhận thêm XP.</p>
+              <span>Chơi ngay →</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="benefit-grid">
+        <article class="benefit-card">
+          <span>01</span>
+          <h3>Học theo trình độ</h3>
+          <p>Tiếng Anh A1–C2 và tiếng Trung HSK1–HSK6.</p>
+        </article>
+        <article class="benefit-card">
+          <span>02</span>
+          <h3>Nghe phát âm</h3>
+          <p>Nghe từ và cụm câu trực tiếp bằng giọng đọc trình duyệt.</p>
+        </article>
+        <article class="benefit-card">
+          <span>03</span>
+          <h3>Theo dõi tiến độ</h3>
+          <p>Tích lũy XP và nhìn thấy sự tiến bộ sau mỗi lần luyện tập.</p>
+        </article>
+      </section>
+    </section>
+
+    <section id="learnView" class="view">
+      <div class="view-header">
+        <div>
+          <span class="section-kicker">KHO TỪ VỰNG</span>
+          <h2>Học theo ngôn ngữ và cấp độ</h2>
+          <p>Tìm kiếm nhanh theo từ, nghĩa hoặc chủ đề.</p>
+        </div>
+        <div class="filter-panel glass-panel">
+          <select id="languageSelect">
+            <option value="english">Tiếng Anh</option>
+            <option value="chinese">Tiếng Trung</option>
+          </select>
+          <select id="levelSelect"></select>
+          <input id="searchInput" placeholder="Tìm từ, nghĩa hoặc chủ đề..." />
+          <button id="searchBtn" class="btn btn-primary">Tìm kiếm</button>
+        </div>
+      </div>
+      <div id="wordGrid" class="word-grid"></div>
+    </section>
+
+
+    <section id="lookupView" class="view">
+      <div class="view-header">
+        <div>
+          <span class="section-kicker">TÌM KIẾM TRỰC TUYẾN</span>
+          <h2>Tra từ và dịch nhanh</h2>
+          <p>Tìm từ tiếng Anh trên Internet, xem phiên âm, nghĩa, ví dụ, từ liên quan và lưu vào kho học.</p>
+        </div>
+      </div>
+
+      <div class="lookup-grid">
+        <section class="lookup-panel glass-panel">
+          <h3>Tra từ tiếng Anh</h3>
+          <div class="lookup-search-wrap">
+            <input id="lookupInput" autocomplete="off" placeholder="Ví dụ: beautiful, travel, improve..." />
+            <button id="lookupBtn" class="btn btn-primary">Tra từ</button>
+            <div id="suggestionBox" class="suggestion-box hidden"></div>
+          </div>
+          <div id="lookupStatus" class="lookup-status"></div>
+          <div id="lookupResult" class="lookup-result empty-state">Nhập một từ để bắt đầu tra cứu.</div>
+        </section>
+
+        <section class="translate-panel glass-panel">
+          <h3>Dịch văn bản</h3>
+          <div class="translate-controls">
+            <select id="translateFrom">
+              <option value="en">Tiếng Anh</option>
+              <option value="zh-CN">Tiếng Trung</option>
+              <option value="vi">Tiếng Việt</option>
+            </select>
+            <span>→</span>
+            <select id="translateTo">
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">Tiếng Anh</option>
+              <option value="zh-CN">Tiếng Trung</option>
+            </select>
+          </div>
+          <textarea id="translateInput" placeholder="Nhập từ hoặc câu cần dịch..."></textarea>
+          <button id="translateBtn" class="btn btn-primary">Dịch ngay</button>
+          <div id="translateResult" class="translate-result">Bản dịch sẽ xuất hiện tại đây.</div>
+        </section>
+      </div>
+    </section>
+
+    <section id="phrasesView" class="view">
+      <div class="view-header">
+        <div>
+          <span class="section-kicker">GIAO TIẾP THỰC TẾ</span>
+          <h2>Cụm nói theo tình huống</h2>
+          <p>Những mẫu câu ngắn gọn để dùng ngay trong cuộc sống.</p>
+        </div>
+      </div>
+      <div id="phraseList" class="phrase-list"></div>
+    </section>
+
+    <section id="gameView" class="view">
+      <div class="game-layout">
+        <div class="game-info glass-panel">
+          <span class="section-kicker">MINI GAME</span>
+          <h2>Chọn nghĩa đúng</h2>
+          <p>Đọc từ được hiển thị và chọn đáp án đúng để nhận XP.</p>
+          <div class="game-badge">Mỗi câu đúng +10 XP</div>
+        </div>
+        <div class="game-shell glass-panel">
+          <div class="game-label">TỪ CẦN CHỌN</div>
+          <div id="gameWord" class="game-word">Nhấn bắt đầu</div>
+          <div id="gameOptions" class="game-options"></div>
+          <div id="gameMessage" class="game-message"></div>
+          <button id="startGameBtn" class="btn btn-primary btn-large">Bắt đầu câu mới</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminView" class="view">
+      <div class="view-header">
+        <div>
+          <span class="section-kicker">TRUNG TÂM QUẢN TRỊ</span>
+          <h2>Quản lý hệ thống</h2>
+          <p>Theo dõi dữ liệu và bổ sung nội dung học tập.</p>
+        </div>
+      </div>
+
+      <div class="admin-stats">
+        <div class="admin-stat glass-panel">
+          <span>Người dùng</span>
+          <strong id="adminUsers">0</strong>
+        </div>
+        <div class="admin-stat glass-panel">
+          <span>Từ vựng</span>
+          <strong id="adminWords">0</strong>
+        </div>
+        <div class="admin-stat glass-panel">
+          <span>Cụm nói</span>
+          <strong id="adminPhrases">0</strong>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <form id="wordForm" class="admin-form glass-panel">
+          <div class="panel-heading">
+            <span class="panel-icon">＋</span>
+            <div>
+              <h3>Thêm từ mới</h3>
+              <p>Bổ sung dữ liệu vào kho từ vựng.</p>
+            </div>
+          </div>
+          <select name="language" required>
+            <option value="english">Tiếng Anh</option>
+            <option value="chinese">Tiếng Trung</option>
+          </select>
+          <input name="level" placeholder="Cấp độ: A1 hoặc HSK1" required />
+          <input name="word" placeholder="Từ mới" required />
+          <input name="pronunciation" placeholder="Phiên âm / Pinyin" />
+          <input name="meaning" placeholder="Nghĩa tiếng Việt" required />
+          <input name="example" placeholder="Câu ví dụ" />
+          <input name="topic" placeholder="Chủ đề" />
+          <button class="btn btn-primary">Thêm vào hệ thống</button>
+          <div id="adminMessage" class="form-message"></div>
+        </form>
+
+        <div class="user-panel glass-panel">
+          <div class="panel-heading">
+            <span class="panel-icon">◎</span>
+            <div>
+              <h3>Người dùng gần đây</h3>
+              <p>Danh sách tài khoản trong hệ thống.</p>
+            </div>
+          </div>
+          <div id="userTable" class="user-table"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="authModal" class="modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" id="closeModal">×</button>
+      <div class="modal-brand">
+        <div class="brand-mark"><span>LP</span></div>
+        <div>
+          <strong>LingoPlay</strong>
+          <small>Học ngoại ngữ dễ dàng hơn</small>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="loginTab" class="active">Đăng nhập</button>
+        <button id="registerTab">Đăng ký</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <h3>Chào mừng trở lại</h3>
+        <p>Đăng nhập để tiếp tục hành trình học tập.</p>
+        <label>Email</label>
+        <input type="email" name="email" placeholder="name@example.com" required />
+        <label>Mật khẩu</label>
+        <input type="password" name="password" placeholder="Nhập mật khẩu" required />
+        <button class="btn btn-primary btn-large">Đăng nhập</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <h3>Tạo tài khoản mới</h3>
+        <p>Bắt đầu học và lưu tiến độ của bạn.</p>
+        <label>Họ tên</label>
+        <input name="name" placeholder="Nhập họ tên" required />
+        <label>Email</label>
+        <input type="email" name="email" placeholder="name@example.com" required />
+        <label>Mật khẩu</label>
+        <input type="password" name="password" placeholder="Từ 6 ký tự" required />
+        <button class="btn btn-primary btn-large">Đăng ký</button>
+      </form>
+
+      <p id="authMessage" class="auth-message"></p>
+      <div class="demo-accounts">
+        <b>Tài khoản dùng thử</b>
+        <span>User: user@lingoplay.local / User@123</span>
+        <span>Admin: admin@lingoplay.local / Admin@123</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js?v=4"></script>
+</body>
+</html>
