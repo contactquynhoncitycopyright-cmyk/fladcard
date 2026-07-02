@@ -357,3 +357,19 @@ input:focus,select:focus{border-color:#6f62dd;box-shadow:0 0 0 3px rgba(123,97,2
 .local-results{margin-top:15px;color:var(--muted);font-size:13px}
 @media(max-width:850px){.lookup-grid{grid-template-columns:1fr}}
 @media(max-width:520px){.lookup-search-wrap{grid-template-columns:1fr}.suggestion-box{right:0;top:54px}.lookup-head{flex-direction:column}.lookup-actions{width:100%}.lookup-actions .btn{flex:1}}
+
+
+/* Bố cục học song ngữ */
+.language-hub{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
+.course-card{display:grid;grid-template-columns:82px 1fr;gap:18px;text-align:left;padding:25px;border-radius:24px;color:white;border:1px solid var(--line);background:linear-gradient(145deg,rgba(17,27,50,.96),rgba(8,15,30,.98));transition:.25s;box-shadow:0 18px 45px rgba(0,0,0,.2)}
+.course-card:hover,.course-card.active{transform:translateY(-4px);border-color:rgba(123,97,255,.5);box-shadow:0 22px 55px rgba(52,46,130,.28)}
+.chinese-course:hover,.chinese-course.active{border-color:rgba(255,76,128,.46);box-shadow:0 22px 55px rgba(124,30,66,.22)}
+.course-flag{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;font-size:25px;font-weight:950;background:linear-gradient(135deg,#6f5cff,#23d5c3)}
+.chinese-course .course-flag{background:linear-gradient(135deg,#ff497b,#ff9c52)}
+.course-card span{font-size:11px;letter-spacing:1.4px;font-weight:900;color:#aaa1ff}.chinese-course span{color:#ff9cb6}
+.course-card h3{font-size:26px;margin:5px 0 8px}.course-card p{color:var(--muted);line-height:1.55;margin:0 0 10px}.course-card b{font-size:12px;color:#7ff7eb}
+.catalog-panel{padding:24px;border-radius:25px}.catalog-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}.catalog-heading h3{font-size:30px;margin:7px 0}.catalog-heading p{color:var(--muted);margin:0}.catalog-badge{font-size:11px;letter-spacing:1.2px;font-weight:900;color:#a99cff}
+.level-chips{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.level-chip{border:1px solid #293650;background:#0a1324;color:#aeb9ce;border-radius:999px;padding:9px 13px;font-weight:850}.level-chip.active{background:linear-gradient(135deg,#7b61ff,#5a78ff);color:white;border-color:transparent}
+.catalog-tools{display:grid;grid-template-columns:150px 130px 1fr auto;gap:9px;margin-bottom:20px}.catalog-tools>*{width:100%}
+.demo-accounts{display:none!important}.modal-card{max-height:92vh;overflow:auto}.auth-form input{width:100%;min-width:0}.auth-message{overflow-wrap:anywhere}
+@media(max-width:760px){.language-hub{grid-template-columns:1fr}.catalog-heading{flex-direction:column}.level-chips{justify-content:flex-start}.catalog-tools{grid-template-columns:1fr 1fr}.catalog-tools input{grid-column:1/-1}.catalog-tools .btn{grid-column:1/-1}.course-card{grid-template-columns:64px 1fr;padding:20px}.course-flag{width:58px;height:58px;border-radius:18px}}

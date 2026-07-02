@@ -5,9 +5,10 @@ from flask import Flask, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_, func
+from vocabulary_data import VOCABULARY, PHRASES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
+PUBLIC_DIR = BASE_DIR
 DB_URL = os.getenv('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'data', 'lingoplay.db'))
 if DB_URL.startswith('postgres://'):
     DB_URL = DB_URL.replace('postgres://', 'postgresql://', 1)
@@ -108,17 +109,12 @@ def security_headers(resp):
     resp.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
     return resp
 
-@app.route("/")
-def home():
-    return send_from_directory(BASE_DIR, "lingoplay-home.html")
-
-
-@app.route("/<path:path>")
+@app.route('/')
+def home(): return send_from_directory(PUBLIC_DIR,'lingoplay-home.html')
+@app.route('/<path:path>')
 def static_files(path):
-    if path.startswith("api/"):
-        return jsonify(error="Không tìm thấy API"), 404
-
-    return send_from_directory(BASE_DIR, path)
+    if path.startswith('api/'): return jsonify(error='Không tìm thấy API'),404
+    return send_from_directory(PUBLIC_DIR,path)
 
 @app.get('/api/health')
 def health():
@@ -268,12 +264,12 @@ def seed():
     admin_email=os.getenv('ADMIN_EMAIL','admin@lingoplay.local').lower(); admin_pw=os.getenv('ADMIN_PASSWORD','Admin@123')
     if not User.query.filter_by(email=admin_email).first(): db.session.add(User(name='Quản trị viên',email=admin_email,password_hash=generate_password_hash(admin_pw),role='admin',xp=500))
     if not User.query.filter_by(email='user@lingoplay.local').first(): db.session.add(User(name='Người dùng mẫu',email='user@lingoplay.local',password_hash=generate_password_hash('User@123'),role='user',xp=120))
-    samples=[('english','A1','hello','/həˈləʊ/','xin chào','Hello, nice to meet you.','giao tiếp'),('english','A1','book','/bʊk/','quyển sách','This is my book.','đồ vật'),('english','A2','travel','/ˈtræv.əl/','du lịch','I love to travel.','du lịch'),('english','B1','improve','/ɪmˈpruːv/','cải thiện','Practice can improve your skills.','học tập'),('chinese','HSK1','你好','nǐ hǎo','xin chào','你好，很高兴认识你。','giao tiếp'),('chinese','HSK1','谢谢','xiè xie','cảm ơn','谢谢你的帮助。','giao tiếp'),('chinese','HSK2','学习','xué xí','học tập','我每天学习中文。','học tập'),('chinese','HSK3','旅行','lǚ xíng','du lịch','我喜欢旅行。','du lịch')]
-    for s in samples:
-        if not Word.query.filter_by(language=s[0],level=s[1],word=s[2]).first(): db.session.add(Word(language=s[0],level=s[1],word=s[2],pronunciation=s[3],meaning=s[4],example=s[5],topic=s[6]))
-    phrases=[('english','A1','How are you?','Bạn khỏe không?'),('english','A2','Could you help me?','Bạn có thể giúp tôi không?'),('chinese','HSK1','你叫什么名字？','Bạn tên là gì?'),('chinese','HSK2','这个多少钱？','Cái này bao nhiêu tiền?')]
-    for p in phrases:
-        if not Phrase.query.filter_by(language=p[0],level=p[1],phrase=p[2]).first(): db.session.add(Phrase(language=p[0],level=p[1],phrase=p[2],meaning=p[3]))
+    for s in VOCABULARY:
+        if not Word.query.filter_by(language=s[0],level=s[1],word=s[2]).first():
+            db.session.add(Word(language=s[0],level=s[1],word=s[2],pronunciation=s[3],meaning=s[4],example=s[5],topic=s[6]))
+    for p in PHRASES:
+        if not Phrase.query.filter_by(language=p[0],level=p[1],phrase=p[2]).first():
+            db.session.add(Phrase(language=p[0],level=p[1],phrase=p[2],meaning=p[3]))
     db.session.commit()
 
 with app.app_context(): seed()

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b1020" />
   <title>LingoPlay - Học ngoại ngữ</title>
-  <link rel="stylesheet" href="./style.css?v=3" />
+  <link rel="stylesheet" href="./style.css?v=10" />
 </head>
 <body>
   <div class="ambient ambient-a"></div>
@@ -158,22 +158,24 @@
 
     <section id="learnView" class="view">
       <div class="view-header">
-        <div>
-          <span class="section-kicker">KHO TỪ VỰNG</span>
-          <h2>Học theo ngôn ngữ và cấp độ</h2>
-          <p>Tìm kiếm nhanh theo từ, nghĩa hoặc chủ đề.</p>
-        </div>
-        <div class="filter-panel glass-panel">
-          <select id="languageSelect">
-            <option value="english">Tiếng Anh</option>
-            <option value="chinese">Tiếng Trung</option>
-          </select>
-          <select id="levelSelect"></select>
-          <input id="searchInput" placeholder="Tìm từ, nghĩa hoặc chủ đề..." />
-          <button id="searchBtn" class="btn btn-primary">Tìm kiếm</button>
-        </div>
+        <div><span class="section-kicker">LỘ TRÌNH SONG NGỮ</span><h2>Chọn ngôn ngữ muốn học</h2><p>Hai kho học được tách riêng, mỗi kho có cấp độ, cụm nói và trò chơi riêng.</p></div>
       </div>
-      <div id="wordGrid" class="word-grid"></div>
+      <div class="language-hub">
+        <button class="course-card english-course active" data-language="english">
+          <div class="course-flag">EN</div><div><span>TIẾNG ANH</span><h3>CEFR A1 → C2</h3><p>Từ nền tảng giao tiếp đến học thuật và chuyên sâu.</p><b>120+ từ tích hợp • Tra cứu trực tuyến</b></div>
+        </button>
+        <button class="course-card chinese-course" data-language="chinese">
+          <div class="course-flag">中</div><div><span>TIẾNG TRUNG</span><h3>HSK1 → HSK6</h3><p>Hán tự, Pinyin, nghĩa Việt và câu ví dụ.</p><b>120+ từ tích hợp • Phát âm zh-CN</b></div>
+        </button>
+      </div>
+      <section class="catalog-panel glass-panel">
+        <div class="catalog-heading"><div><span id="catalogBadge" class="catalog-badge">ENGLISH</span><h3 id="catalogTitle">Kho Tiếng Anh</h3><p id="catalogDescription">Chọn cấp độ và học theo lộ trình CEFR.</p></div><div id="levelChips" class="level-chips"></div></div>
+        <div class="catalog-tools">
+          <select id="languageSelect" aria-label="Ngôn ngữ"><option value="english">Tiếng Anh</option><option value="chinese">Tiếng Trung</option></select>
+          <select id="levelSelect"></select><input id="searchInput" placeholder="Tìm từ, nghĩa hoặc chủ đề..."/><button id="searchBtn" class="btn btn-primary">Tìm kiếm</button>
+        </div>
+        <div id="wordGrid" class="word-grid"></div>
+      </section>
     </section>
 
 
@@ -344,19 +346,14 @@
         <label>Email</label>
         <input type="email" name="email" placeholder="name@example.com" required />
         <label>Mật khẩu</label>
-        <input type="password" name="password" placeholder="Từ 6 ký tự" required />
+        <input type="password" name="password" placeholder="Từ 8 ký tự" required />
         <button class="btn btn-primary btn-large">Đăng ký</button>
       </form>
 
       <p id="authMessage" class="auth-message"></p>
-      <div class="demo-accounts">
-        <b>Tài khoản dùng thử</b>
-        <span>User: user@lingoplay.local / User@123</span>
-        <span>Admin: admin@lingoplay.local / Admin@123</span>
-      </div>
     </div>
   </div>
 
-  <script src="./app.js?v=4"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>

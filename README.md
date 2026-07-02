@@ -1,3 +1,13 @@
+# LingoPlay Bilingual Pro
+
+Bản tách riêng Tiếng Anh A1–C2 và Tiếng Trung HSK1–HSK6. Có 240 từ tích hợp, 24 cụm nói, tra từ, dịch, trò chơi, tài khoản và quản trị.
+
+## Cập nhật GitHub nhanh
+Upload và ghi đè 5 file ở thư mục gốc: `app.py`, `app.js`, `style.css`, `lingoplay-home.html`, `vocabulary_data.py`. Sau đó Render > Manual Deploy > Deploy latest commit.
+
+## Lưu ý database
+Lần deploy mới, hàm seed tự thêm các từ còn thiếu vào PostgreSQL, không xóa tài khoản hiện có.
+
 # LingoPlay Production
 
 ## Chạy trên Windows

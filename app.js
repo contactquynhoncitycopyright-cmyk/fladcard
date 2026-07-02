@@ -34,7 +34,25 @@ function showView(name) {
 
 function fillLevels() {
   const language = $("#languageSelect").value;
-  $("#levelSelect").innerHTML = levels[language].map(x => `<option>${x}</option>`).join("");
+  $("#levelSelect").innerHTML = levels[language].map(x => `<option value="${x}">${x}</option>`).join("");
+  renderLanguageUI(language);
+}
+
+function renderLanguageUI(language) {
+  $$(".course-card").forEach(c => c.classList.toggle("active", c.dataset.language === language));
+  const isZh = language === "chinese";
+  $("#catalogBadge").textContent = isZh ? "中文 • HSK" : "ENGLISH • CEFR";
+  $("#catalogTitle").textContent = isZh ? "Kho Tiếng Trung" : "Kho Tiếng Anh";
+  $("#catalogDescription").textContent = isZh ? "Học Hán tự, Pinyin và nghĩa tiếng Việt theo HSK1–HSK6." : "Học từ giao tiếp đến học thuật theo A1–C2.";
+  const selected = $("#levelSelect").value || levels[language][0];
+  $("#levelChips").innerHTML = levels[language].map(x => `<button class="level-chip ${x===selected?'active':''}" data-level="${x}">${x}</button>`).join("");
+  $$(".level-chip").forEach(btn => btn.onclick = () => { $("#levelSelect").value = btn.dataset.level; renderLanguageUI(language); loadWords(); });
+}
+
+function selectLanguage(language) {
+  $("#languageSelect").value = language;
+  fillLevels();
+  loadWords();
 }
 
 async function loadWords() {
@@ -43,7 +61,8 @@ async function loadWords() {
   const search = $("#searchInput").value.trim();
   const data = await api(`/api/words?language=${encodeURIComponent(language)}&level=${encodeURIComponent(level)}&search=${encodeURIComponent(search)}`);
   currentWords = data.items;
-  $("#statWords").textContent = currentWords.length;
+  $("#statWords").textContent = currentWords.length + "+";
+  renderLanguageUI(language);
   $("#wordGrid").innerHTML = currentWords.length ? currentWords.map(w => `
     <article class="card word-card">
       <div class="word-top">
@@ -277,7 +296,8 @@ $("#loginForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget
 $("#registerForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/register"); };
 $("#logoutBtn").onclick = async () => { await api("/api/auth/logout",{method:"POST"}); currentUser=null; await refreshUser(); showView("home"); };
 $("#languageSelect").onchange = () => { fillLevels(); loadWords(); };
-$("#levelSelect").onchange = loadWords;
+$$(".course-card").forEach(card => card.onclick = () => selectLanguage(card.dataset.language));
+$("#levelSelect").onchange = () => { renderLanguageUI($("#languageSelect").value); loadWords(); };
 $("#searchBtn").onclick = loadWords;
 $("#searchInput").onkeydown = e => { if (e.key === "Enter") loadWords(); };
 $("#startGameBtn").onclick = newGame;
