@@ -155,7 +155,113 @@ async function loadAdmin() {
     </div>
   `).join("");
 }
-\n\nfunction firstDefinition(result) {\n  for (const meaning of (result.meanings || [])) {\n    for (const item of (meaning.definitions || [])) {\n      if (item.definition) return item;\n    }\n  }\n  return null;\n}\n\nasync function lookupWord(wordOverride) {\n  const word = (wordOverride || $("#lookupInput").value).trim();\n  if (!word) return;\n  $("#lookupInput").value = word;\n  $("#suggestionBox").classList.add("hidden");\n  $("#lookupStatus").textContent = "Đang tìm từ trên Internet và trong dữ liệu nội bộ...";\n  $("#lookupResult").innerHTML = '<div class="empty-state">Đang tải kết quả...</div>';\n  try {\n    const [result, related] = await Promise.all([\n      api(`/api/dictionary?word=${encodeURIComponent(word)}`),\n      api(`/api/related?word=${encodeURIComponent(word)}`).catch(() => ({similar:[],synonyms:[],antonyms:[]}))\n    ]);\n    result.synonyms = [...new Set([...(result.synonyms || []), ...(related.synonyms || []), ...(related.similar || []).slice(0,8)])].slice(0,20);\n    result.antonyms = [...new Set([...(result.antonyms || []), ...(related.antonyms || [])])].slice(0,20);\n    currentLookup = result;\n    renderLookup(result);\n    $("#lookupStatus").textContent = result.source === "local" ? "Đang dùng dữ liệu nội bộ." : "Đã lấy dữ liệu trực tuyến thành công.";\n  } catch (e) {\n    currentLookup = null;\n    $("#lookupStatus").textContent = e.message;\n    $("#lookupResult").innerHTML = `<div class="empty-state">${escapeHtml(e.message)}<br>Web vẫn có thể tìm trong kho từ vựng nội bộ.</div>`;\n  }\n}\n\nfunction renderLookup(result) {\n  const first = firstDefinition(result);\n  const vietnamese = result.translation || result.local_items?.[0]?.meaning || "";\n  const meaningHtml = (result.meanings || []).map(m => `\n    <div class="dictionary-block">\n      <h4>${escapeHtml(m.part_of_speech || "Nghĩa")}</h4>\n      ${(m.definitions || []).map((d,i) => `\n        <div class="definition-item"><b>${i+1}.</b> ${escapeHtml(d.definition)}${d.example ? `<br><small>Ví dụ: ${escapeHtml(d.example)}</small>` : ""}</div>\n      `).join("")}\n    </div>`).join("");\n  const synonymHtml = (result.synonyms || []).length ? `<div class="dictionary-block"><h4>Từ liên quan / đồng nghĩa</h4><div class="word-tags">${result.synonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";\n  const antonymHtml = (result.antonyms || []).length ? `<div class="dictionary-block"><h4>Từ trái nghĩa</h4><div class="word-tags">${result.antonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";\n  const localHtml = (result.local_items || []).length ? `<div class="local-results">Đã tìm thấy ${result.local_items.length} kết quả liên quan trong SQLite.</div>` : "";\n  $("#lookupResult").classList.remove("empty-state");\n  $("#lookupResult").innerHTML = `\n    <div class="lookup-head">\n      <div><h3 class="lookup-word">${escapeHtml(result.word)}</h3><div class="lookup-phonetic">${escapeHtml(result.phonetic || "Chưa có phiên âm")}</div></div>\n      <div class="lookup-actions">\n        <button class="btn btn-soft" id="lookupSpeakBtn">🔊 Nghe</button>\n        <button class="btn btn-primary" id="saveLookupBtn">Lưu vào kho học</button>\n      </div>\n    </div>\n    ${vietnamese ? `<div class="api-translation"><b>Nghĩa tiếng Việt:</b> ${escapeHtml(vietnamese)}</div>` : ""}\n    ${meaningHtml || '<div class="dictionary-block">Chưa có định nghĩa tiếng Anh, nhưng có thể dùng bản dịch hoặc dữ liệu nội bộ.</div>'}\n    ${synonymHtml}${antonymHtml}${localHtml}`;\n  $("#lookupSpeakBtn").onclick = () => {\n    if (result.audio) { const audio = new Audio(result.audio); audio.play().catch(() => speak(result.word)); }\n    else speak(result.word);\n  };\n  $("#saveLookupBtn").onclick = saveLookupWord;\n}\n\nasync function saveLookupWord() {\n  if (!currentUser) { openAuth("login"); return; }\n  if (!currentLookup) return;\n  const first = firstDefinition(currentLookup);\n  const meaning = currentLookup.translation || currentLookup.local_items?.[0]?.meaning || first?.definition || "Chưa có nghĩa";\n  try {\n    const result = await api("/api/words/save", {method:"POST", body:JSON.stringify({\n      language:"english", level:"A1", word:currentLookup.word,\n      pronunciation:currentLookup.phonetic || "", meaning,\n      example:first?.example || "", topic:"tra từ API"\n    })});\n    $("#lookupStatus").textContent = result.already_exists ? "Từ này đã có trong kho học." : "Đã lưu từ vào SQLite. Có thể dùng trong trò chơi.";\n    await loadWords();\n  } catch(e) { $("#lookupStatus").textContent = e.message; }\n}\n\nasync function loadSuggestions() {\n  const q = $("#lookupInput").value.trim();\n  if (q.length < 2) { $("#suggestionBox").classList.add("hidden"); return; }\n  try {\n    const data = await api(`/api/suggestions?q=${encodeURIComponent(q)}`);\n    if (!data.items.length) { $("#suggestionBox").classList.add("hidden"); return; }\n    $("#suggestionBox").innerHTML = data.items.map(x => `<button class="suggestion-item" data-word="${escapeHtml(x.word)}">${escapeHtml(x.word)}</button>`).join("");\n    $("#suggestionBox").classList.remove("hidden");\n    $$(".suggestion-item").forEach(btn => btn.onclick = () => lookupWord(btn.dataset.word));\n  } catch (_) { $("#suggestionBox").classList.add("hidden"); }\n}\n\nasync function translateText() {\n  const text = $("#translateInput").value.trim();\n  if (!text) return;\n  $("#translateResult").textContent = "Đang dịch...";\n  try {\n    const from = $("#translateFrom").value;\n    const to = $("#translateTo").value;\n    const data = await api(`/api/translate?text=${encodeURIComponent(text)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);\n    $("#translateResult").innerHTML = `<b>Bản dịch:</b><br>${escapeHtml(data.translated)}<br><small>Nguồn: ${escapeHtml(data.source || "API")}</small>`;\n  } catch(e) { $("#translateResult").textContent = e.message; }\n}\n
+
+
+function firstDefinition(result) {
+  for (const meaning of (result.meanings || [])) {
+    for (const item of (meaning.definitions || [])) {
+      if (item.definition) return item;
+    }
+  }
+  return null;
+}
+
+async function lookupWord(wordOverride) {
+  const word = (wordOverride || $("#lookupInput").value).trim();
+  if (!word) return;
+  $("#lookupInput").value = word;
+  $("#suggestionBox").classList.add("hidden");
+  $("#lookupStatus").textContent = "Đang tìm từ trên Internet và trong dữ liệu nội bộ...";
+  $("#lookupResult").innerHTML = '<div class="empty-state">Đang tải kết quả...</div>';
+  try {
+    const [result, related] = await Promise.all([
+      api(`/api/dictionary?word=${encodeURIComponent(word)}`),
+      api(`/api/related?word=${encodeURIComponent(word)}`).catch(() => ({similar:[],synonyms:[],antonyms:[]}))
+    ]);
+    result.synonyms = [...new Set([...(result.synonyms || []), ...(related.synonyms || []), ...(related.similar || []).slice(0,8)])].slice(0,20);
+    result.antonyms = [...new Set([...(result.antonyms || []), ...(related.antonyms || [])])].slice(0,20);
+    currentLookup = result;
+    renderLookup(result);
+    $("#lookupStatus").textContent = result.source === "local" ? "Đang dùng dữ liệu nội bộ." : "Đã lấy dữ liệu trực tuyến thành công.";
+  } catch (e) {
+    currentLookup = null;
+    $("#lookupStatus").textContent = e.message;
+    $("#lookupResult").innerHTML = `<div class="empty-state">${escapeHtml(e.message)}<br>Web vẫn có thể tìm trong kho từ vựng nội bộ.</div>`;
+  }
+}
+
+function renderLookup(result) {
+  const first = firstDefinition(result);
+  const vietnamese = result.translation || result.local_items?.[0]?.meaning || "";
+  const meaningHtml = (result.meanings || []).map(m => `
+    <div class="dictionary-block">
+      <h4>${escapeHtml(m.part_of_speech || "Nghĩa")}</h4>
+      ${(m.definitions || []).map((d,i) => `
+        <div class="definition-item"><b>${i+1}.</b> ${escapeHtml(d.definition)}${d.example ? `<br><small>Ví dụ: ${escapeHtml(d.example)}</small>` : ""}</div>
+      `).join("")}
+    </div>`).join("");
+  const synonymHtml = (result.synonyms || []).length ? `<div class="dictionary-block"><h4>Từ liên quan / đồng nghĩa</h4><div class="word-tags">${result.synonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
+  const antonymHtml = (result.antonyms || []).length ? `<div class="dictionary-block"><h4>Từ trái nghĩa</h4><div class="word-tags">${result.antonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
+  const localHtml = (result.local_items || []).length ? `<div class="local-results">Đã tìm thấy ${result.local_items.length} kết quả liên quan trong SQLite.</div>` : "";
+  $("#lookupResult").classList.remove("empty-state");
+  $("#lookupResult").innerHTML = `
+    <div class="lookup-head">
+      <div><h3 class="lookup-word">${escapeHtml(result.word)}</h3><div class="lookup-phonetic">${escapeHtml(result.phonetic || "Chưa có phiên âm")}</div></div>
+      <div class="lookup-actions">
+        <button class="btn btn-soft" id="lookupSpeakBtn">🔊 Nghe</button>
+        <button class="btn btn-primary" id="saveLookupBtn">Lưu vào kho học</button>
+      </div>
+    </div>
+    ${vietnamese ? `<div class="api-translation"><b>Nghĩa tiếng Việt:</b> ${escapeHtml(vietnamese)}</div>` : ""}
+    ${meaningHtml || '<div class="dictionary-block">Chưa có định nghĩa tiếng Anh, nhưng có thể dùng bản dịch hoặc dữ liệu nội bộ.</div>'}
+    ${synonymHtml}${antonymHtml}${localHtml}`;
+  $("#lookupSpeakBtn").onclick = () => {
+    if (result.audio) { const audio = new Audio(result.audio); audio.play().catch(() => speak(result.word)); }
+    else speak(result.word);
+  };
+  $("#saveLookupBtn").onclick = saveLookupWord;
+}
+
+async function saveLookupWord() {
+  if (!currentUser) { openAuth("login"); return; }
+  if (!currentLookup) return;
+  const first = firstDefinition(currentLookup);
+  const meaning = currentLookup.translation || currentLookup.local_items?.[0]?.meaning || first?.definition || "Chưa có nghĩa";
+  try {
+    const result = await api("/api/words/save", {method:"POST", body:JSON.stringify({
+      language:"english", level:"A1", word:currentLookup.word,
+      pronunciation:currentLookup.phonetic || "", meaning,
+      example:first?.example || "", topic:"tra từ API"
+    })});
+    $("#lookupStatus").textContent = result.already_exists ? "Từ này đã có trong kho học." : "Đã lưu từ vào SQLite. Có thể dùng trong trò chơi.";
+    await loadWords();
+  } catch(e) { $("#lookupStatus").textContent = e.message; }
+}
+
+async function loadSuggestions() {
+  const q = $("#lookupInput").value.trim();
+  if (q.length < 2) { $("#suggestionBox").classList.add("hidden"); return; }
+  try {
+    const data = await api(`/api/suggestions?q=${encodeURIComponent(q)}`);
+    if (!data.items.length) { $("#suggestionBox").classList.add("hidden"); return; }
+    $("#suggestionBox").innerHTML = data.items.map(x => `<button class="suggestion-item" data-word="${escapeHtml(x.word)}">${escapeHtml(x.word)}</button>`).join("");
+    $("#suggestionBox").classList.remove("hidden");
+    $$(".suggestion-item").forEach(btn => btn.onclick = () => lookupWord(btn.dataset.word));
+  } catch (_) { $("#suggestionBox").classList.add("hidden"); }
+}
+
+async function translateText() {
+  const text = $("#translateInput").value.trim();
+  if (!text) return;
+  $("#translateResult").textContent = "Đang dịch...";
+  try {
+    const from = $("#translateFrom").value;
+    const to = $("#translateTo").value;
+    const data = await api(`/api/translate?text=${encodeURIComponent(text)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    $("#translateResult").innerHTML = `<b>Bản dịch:</b><br>${escapeHtml(data.translated)}<br><small>Nguồn: ${escapeHtml(data.source || "API")}</small>`;
+  } catch(e) { $("#translateResult").textContent = e.message; }
+}
+
 function escapeHtml(s="") {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
