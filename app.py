@@ -108,12 +108,17 @@ def security_headers(resp):
     resp.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
     return resp
 
-@app.route('/')
-def home(): return send_from_directory(PUBLIC_DIR,'lingoplay-home.html')
-@app.route('/<path:path>')
+@app.route("/")
+def home():
+    return send_from_directory(BASE_DIR, "lingoplay-home.html")
+
+
+@app.route("/<path:path>")
 def static_files(path):
-    if path.startswith('api/'): return jsonify(error='Không tìm thấy API'),404
-    return send_from_directory(PUBLIC_DIR,path)
+    if path.startswith("api/"):
+        return jsonify(error="Không tìm thấy API"), 404
+
+    return send_from_directory(BASE_DIR, path)
 
 @app.get('/api/health')
 def health():
