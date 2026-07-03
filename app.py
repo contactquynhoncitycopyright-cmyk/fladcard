@@ -337,7 +337,7 @@ def update_user(uid):
 
 def seed():
     os.makedirs(os.path.join(BASE_DIR,'data'),exist_ok=True); db.create_all()
-    admin_email=os.getenv('ADMIN_EMAIL','admin@lingoplay.local').lower(); admin_pw=os.getenv('ADMIN_PASSWORD','Admin@123')
+    admin_email=os.getenv('ADMIN_EMAIL','admin@lingoplay.local').lower(); admin_pw=os.getenv('ADMIN_PASSWORD','Advip11@')
     if not User.query.filter_by(email=admin_email).first(): db.session.add(User(name='Quản trị viên',email=admin_email,password_hash=generate_password_hash(admin_pw),role='admin',xp=500))
     if not User.query.filter_by(email='user@lingoplay.local').first(): db.session.add(User(name='Người dùng mẫu',email='user@lingoplay.local',password_hash=generate_password_hash('User@123'),role='user',xp=120))
     for s in VOCABULARY:
