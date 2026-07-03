@@ -23,8 +23,13 @@ async function api(url, options = {}) {
 }
 
 function showView(name) {
+  const targetView = $(`#${name}View`);
+  if (!targetView) {
+    console.warn("Không tìm thấy view:", name);
+    return;
+  }
   $$(".view").forEach(v => v.classList.remove("active"));
-  $(`#${name}View`).classList.add("active");
+  targetView.classList.add("active");
   $$(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
   if (name === "learn") loadWords();
   if (name === "lookup") setTimeout(() => $("#lookupInput")?.focus(), 100);
@@ -287,25 +292,25 @@ function escapeHtml(s="") {
 
 $$(".nav-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
 $$("[data-go]").forEach(b => b.onclick = () => showView(b.dataset.go));
-$("#authBtn").onclick = () => openAuth("login");
+if ($("#authBtn")) $("#authBtn").onclick = () => openAuth("login");
 if ($("#openRegister")) $("#openRegister").onclick = () => openAuth("register");
-$("#closeModal").onclick = () => $("#authModal").classList.add("hidden");
-$("#loginTab").onclick = () => switchAuth("login");
-$("#registerTab").onclick = () => switchAuth("register");
-$("#loginForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/login"); };
-$("#registerForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/register"); };
-$("#logoutBtn").onclick = async () => { await api("/api/auth/logout",{method:"POST"}); currentUser=null; await refreshUser(); showView("home"); };
-$("#languageSelect").onchange = () => { fillLevels(); loadWords(); };
+if ($("#closeModal")) $("#closeModal").onclick = () => $("#authModal")?.classList.add("hidden");
+if ($("#loginTab")) $("#loginTab").onclick = () => switchAuth("login");
+if ($("#registerTab")) $("#registerTab").onclick = () => switchAuth("register");
+if ($("#loginForm")) $("#loginForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/login"); };
+if ($("#registerForm")) $("#registerForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/register"); };
+if ($("#logoutBtn")) $("#logoutBtn").onclick = async () => { await api("/api/auth/logout",{method:"POST"}); currentUser=null; await refreshUser(); showView("home"); };
+if ($("#languageSelect")) $("#languageSelect").onchange = () => { fillLevels(); loadWords(); };
 $$(".course-card").forEach(card => card.onclick = () => selectLanguage(card.dataset.language));
-$("#levelSelect").onchange = () => { renderLanguageUI($("#languageSelect").value); loadWords(); };
-$("#searchBtn").onclick = loadWords;
-$("#searchInput").onkeydown = e => { if (e.key === "Enter") loadWords(); };
-$("#startGameBtn").onclick = newGame;
-$("#lookupBtn").onclick = () => lookupWord();
-$("#lookupInput").onkeydown = e => { if (e.key === "Enter") lookupWord(); };
-$("#lookupInput").oninput = () => { clearTimeout(suggestionTimer); suggestionTimer = setTimeout(loadSuggestions, 300); };
-$("#translateBtn").onclick = translateText;
-$("#wordForm").onsubmit = async e => {
+if ($("#levelSelect")) $("#levelSelect").onchange = () => { renderLanguageUI($("#languageSelect").value); loadWords(); };
+if ($("#searchBtn")) $("#searchBtn").onclick = loadWords;
+if ($("#searchInput")) $("#searchInput").onkeydown = e => { if (e.key === "Enter") loadWords(); };
+if ($("#startGameBtn")) $("#startGameBtn").onclick = newGame;
+if ($("#lookupBtn")) $("#lookupBtn").onclick = () => lookupWord();
+if ($("#lookupInput")) $("#lookupInput").onkeydown = e => { if (e.key === "Enter") lookupWord(); };
+if ($("#lookupInput")) $("#lookupInput").oninput = () => { clearTimeout(suggestionTimer); suggestionTimer = setTimeout(loadSuggestions, 300); };
+if ($("#translateBtn")) $("#translateBtn").onclick = translateText;
+if ($("#wordForm")) $("#wordForm").onsubmit = async e => {
   e.preventDefault();
   const form = e.currentTarget;
   const body = Object.fromEntries(new FormData(form).entries());
@@ -317,8 +322,12 @@ $("#wordForm").onsubmit = async e => {
   } catch(err) { $("#adminMessage").textContent = err.message; }
 };
 
-fillLevels();
-refreshUser().then(loadWords);
+if ($("#languageSelect") && $("#levelSelect")) fillLevels();
+refreshUser()
+  .then(() => {
+    if ($("#languageSelect") && $("#levelSelect") && $("#wordGrid")) return loadWords();
+  })
+  .catch(err => console.error("Lỗi khởi tạo:", err));
 
 
 async function downloadAdminFile(url, filename) {
@@ -341,9 +350,9 @@ async function downloadAdminFile(url, filename) {
   }
 }
 
-$("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/template.csv", "lingoplay-vocabulary-template.csv");
-$("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");
-$("#csvImportForm").onsubmit = async e => {
+if ($("#downloadTemplateBtn")) $("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/template.csv", "lingoplay-vocabulary-template.csv");
+if ($("#exportWordsBtn")) $("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");
+if ($("#csvImportForm")) $("#csvImportForm").onsubmit = async e => {
   e.preventDefault();
   const form = e.currentTarget;
   const file = $("#csvFile").files[0];
