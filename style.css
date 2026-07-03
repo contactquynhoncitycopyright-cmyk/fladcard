@@ -14,7 +14,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .progress{height:6px;background:#eceff5;border-radius:999px;overflow:hidden}.progress i{height:100%;display:block;background:linear-gradient(90deg,var(--primary),var(--primary-2));border-radius:inherit}.progress.red i{background:#ff4d4f}
 .upgrade-card{margin-top:18px;border-radius:18px;padding:18px;color:#fff;background:linear-gradient(145deg,#7653ff,#4b36df);box-shadow:var(--shadow)}.upgrade-card svg{width:30px}.upgrade-card strong{display:block;margin-top:8px}.upgrade-card p{font-size:12px;line-height:1.7}.btn-light{background:#fff!important;color:var(--primary)!important;border:1px solid rgba(109,74,255,.12)!important}
 .page-shell{margin-left:264px;padding:104px 28px 34px}.view{display:none}.view.active{display:block}.surface-card,.side-card,.level-panel,.recent-strip{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;max-width:1480px;margin:auto}.main-column{min-width:0}..welcome-hero,
+.dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;max-width:1480px;margin:auto}.main-column{min-width:0}.welcome-hero,
 body.dark .welcome-hero {
   background-image:
     linear-gradient(
