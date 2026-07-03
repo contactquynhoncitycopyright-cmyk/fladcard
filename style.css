@@ -1188,3 +1188,168 @@ button:disabled{opacity:.58;cursor:not-allowed}
 .fx-note{display:block;margin-top:10px;color:#aeb6c8;font-size:11px;line-height:1.4}
 @media (max-width:700px){.fx-control{right:12px;bottom:12px}.fx-toggle{width:44px;height:44px;border-radius:14px}.fx-panel{width:210px}.fx-dragon{width:190px;height:86px}}
 @media (prefers-reduced-motion:reduce){.fx-snowflake{animation-duration:18s!important}.fx-dragon{animation-duration:28s!important}.fx-toggle{transition:none}}
+
+/* =========================================================
+   LINGOPLAY MONOCHROME LIGHT THEME
+   Trắng - đen, dịu mắt, giảm màu nền và hiệu ứng gây nhiễu
+   ========================================================= */
+:root,
+body.dark{
+  --bg:#f5f5f5;
+  --surface:#ffffff;
+  --surface-2:#f1f1f1;
+  --text:#111111;
+  --muted:#666666;
+  --line:#d5d5d5;
+  --primary:#111111;
+  --primary-2:#333333;
+  --purple:#111111;
+  --shadow:0 8px 24px rgba(0,0,0,.06);
+}
+
+body,
+body.dark{
+  background:#f5f5f5!important;
+  color:#111!important;
+}
+
+body.dark .topbar,
+body.dark .sidebar,
+body.dark .global-search,
+body.dark .icon-button,
+body.dark .language-switch,
+body.dark .course-card,
+body.dark .level-chip,
+body.dark .static-levels button,
+body.dark .word-card,
+body.dark .phrase-item,
+body.dark .game-options button,
+body.dark input,
+body.dark select,
+body.dark textarea,
+body.dark .modal-card,
+.topbar,.sidebar,.global-search,.icon-button,.language-switch,
+.surface-card,.side-card,.level-panel,.recent-strip,
+.word-card,.phrase-item,.modal-card{
+  background:#fff!important;
+  color:#111!important;
+  border-color:#d5d5d5!important;
+}
+
+.brand-mark,
+.btn-primary,
+.upgrade-card,
+.static-levels button.active,
+.static-levels.chinese button.active{
+  background:#111!important;
+  color:#fff!important;
+  border-color:#111!important;
+  box-shadow:none!important;
+}
+
+.brand-name,
+.section-kicker,
+.section-heading small,
+.nav-btn.active,
+.nav-btn:hover,
+.level-summary button,
+.side-card-title a,
+.mini-result small,
+.learning-card small,
+.today-word button,
+.language-switch.active{
+  color:#111!important;
+}
+
+.nav-btn:hover,.nav-btn.active,
+.language-switch.active,
+.today-word button,
+.btn-light,
+.btn-soft,.btn-secondary,.btn-ghost{
+  background:#ededed!important;
+  color:#111!important;
+  border-color:#cfcfcf!important;
+}
+
+.learning-card,
+.learning-card.blue,
+.learning-card.pink,
+.learning-card.green,
+.learning-card.orange{
+  background:#fff!important;
+  color:#111!important;
+  border:1px solid #cfcfcf!important;
+  box-shadow:0 5px 16px rgba(0,0,0,.04)!important;
+}
+.learning-card:hover{
+  transform:translateY(-2px);
+  border-color:#8f8f8f!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.08)!important;
+}
+.learning-card h3,.learning-card p{color:#111!important}
+.learning-card p{color:#666!important}
+
+.progress{background:#e5e5e5!important}
+.progress i,.progress.red i{
+  background:#222!important;
+}
+
+.feature-icon,.round-icon,
+.purple,.cyan,.violet,.pink,
+.round-icon.blue,.round-icon.red{
+  background:#ededed!important;
+  color:#111!important;
+}
+
+/* Hero dịu màu hơn */
+.welcome-hero,
+body.dark .welcome-hero{
+  filter:grayscale(100%);
+  border:1px solid #d0d0d0!important;
+}
+.welcome-hero::before,
+body.dark .welcome-hero::before{
+  background:rgba(255,255,255,.42)!important;
+}
+.hero-overlay,
+body.dark .hero-overlay{
+  color:#111!important;
+  background:rgba(255,255,255,.70)!important;
+  backdrop-filter:blur(3px);
+}
+.language-choice,
+body.dark .language-choice{
+  background:rgba(255,255,255,.94)!important;
+  color:#111!important;
+  border-color:#cfcfcf!important;
+  box-shadow:none!important;
+}
+
+/* Hiệu ứng tuyết chuyển sang trắng/xám, không chói */
+.fx-snowflake,
+.fx-snowflake-2,
+.fx-snowflake-3{
+  background:#fff!important;
+  border:1px solid rgba(0,0,0,.22)!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.16)!important;
+  opacity:.68!important;
+}
+.fx-dragon{filter:grayscale(100%) contrast(.9);opacity:.72!important}
+.fx-toggle,.fx-panel{
+  background:#fff!important;
+  color:#111!important;
+  border-color:#cfcfcf!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.10)!important;
+}
+
+/* Các badge và màu chữ phụ chuyển về đơn sắc */
+.badge,.chip,.tag,[class*="badge"],[class*="chip"]{
+  border-color:#cfcfcf!important;
+}
+
+/* Tăng tương phản vừa phải, không dùng màu neon */
+a,button{transition:background-color .18s ease,border-color .18s ease,transform .18s ease}
+
+@media (max-width:620px){
+  .learning-card{min-height:195px}
+}
