@@ -16,9 +16,10 @@ services:
           name: lingoplay-db
           property: connectionString
       - key: ADMIN_EMAIL
-        value: admin@example.com
+        value: admin@lingoplay.local
+
       - key: ADMIN_PASSWORD
-        generateValue: true
+        sync: false
 databases:
   - name: lingoplay-db
     databaseName: lingoplay
