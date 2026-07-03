@@ -1893,3 +1893,81 @@ svg,.lucide,.local-lucide-icon{
   .card-emoji{width:38px!important;height:38px!important}
   .today-word button,.quick-lookup-box button{width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important}
 }
+
+
+/* =========================================================
+   LIGHT MODE HARD FIX — loại bỏ hoàn toàn nền tối cũ
+   ========================================================= */
+:root{
+  --bg:#f7f9fc!important;
+  --surface:#ffffff!important;
+  --surface-2:#f3f6fb!important;
+  --text:#182033!important;
+  --muted:#667085!important;
+  --line:#dfe5ef!important;
+  --primary:#6c5ce7!important;
+  --primary-2:#4f8cff!important;
+  --shadow:0 10px 28px rgba(40,55,90,.08)!important;
+}
+html,body,body.dark,.app-frame,.page-shell,.main-content,.content-area{
+  background:#f7f9fc!important;
+  color:#182033!important;
+  color-scheme:light!important;
+}
+body.dark{background:#f7f9fc!important;color:#182033!important}
+.topbar,body.dark .topbar,.sidebar,body.dark .sidebar,
+.surface-card,body.dark .surface-card,.side-card,body.dark .side-card,
+.level-panel,body.dark .level-panel,.recent-strip,body.dark .recent-strip,
+.modal-content,body.dark .modal-content,.auth-card,body.dark .auth-card,
+.profile-card,body.dark .profile-card,.admin-panel,body.dark .admin-panel,
+.catalog-panel,body.dark .catalog-panel,.lookup-panel,body.dark .lookup-panel,
+.translate-panel,body.dark .translate-panel,.topic-card,body.dark .topic-card,
+.learned-card,body.dark .learned-card,.review-card,body.dark .review-card,
+.news-panel,body.dark .news-panel,.language-news-card,body.dark .language-news-card{
+  background:#ffffff!important;
+  color:#182033!important;
+  border-color:#dfe5ef!important;
+}
+body.dark input,body.dark textarea,body.dark select,
+input,textarea,select{
+  background:#ffffff!important;
+  color:#182033!important;
+  border-color:#d9e0eb!important;
+}
+body.dark input::placeholder,body.dark textarea::placeholder,
+input::placeholder,textarea::placeholder{color:#98a2b3!important}
+body.dark .nav-btn,body.dark .language-switch,body.dark .icon-button,
+body.dark .btn-secondary,body.dark .btn-soft,body.dark .btn-ghost,
+.nav-btn,.language-switch,.icon-button,.btn-secondary,.btn-soft,.btn-ghost{
+  color:#344054!important;
+}
+body.dark .nav-btn:hover,body.dark .nav-btn.active,
+.nav-btn:hover,.nav-btn.active{
+  background:#eeebff!important;
+  color:#5f4bd8!important;
+}
+body.dark .learning-card,body.dark .course-card,body.dark .word-card,
+body.dark .phrase-item,body.dark .feature-row article,
+.learning-card,.course-card,.word-card,.phrase-item,.feature-row article{
+  color:#182033!important;
+  border-color:#dfe5ef!important;
+}
+.learning-card.blue{background:#eef6ff!important}
+.learning-card.pink{background:#fff1f6!important}
+.learning-card.green{background:#edf9f0!important}
+.learning-card.orange{background:#fff5e9!important}
+body.dark .learning-card.blue{background:#eef6ff!important}
+body.dark .learning-card.pink{background:#fff1f6!important}
+body.dark .learning-card.green{background:#edf9f0!important}
+body.dark .learning-card.orange{background:#fff5e9!important}
+body.dark h1,body.dark h2,body.dark h3,body.dark h4,
+body.dark strong,body.dark label,body.dark .brand-name,
+h1,h2,h3,h4,strong,label{color:#182033!important}
+body.dark p,body.dark small,body.dark .muted,p.muted,.muted{color:#667085!important}
+body.dark .hero-overlay{background:rgba(255,255,255,.88)!important;color:#182033!important}
+body.dark .language-choice{background:rgba(255,255,255,.96)!important;color:#182033!important}
+body.dark .progress,body.dark .progress-track{background:#e8edf5!important}
+body.dark .upgrade-card{background:linear-gradient(135deg,#8068f3,#5f8ff7)!important;color:#fff!important}
+body.dark .upgrade-card *{color:#fff!important}
+/* Ẩn nút chuyển nền tối vì giao diện này cố định sáng */
+#themeToggle{display:none!important}

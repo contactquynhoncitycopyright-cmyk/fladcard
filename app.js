@@ -1055,8 +1055,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const themeToggle = document.getElementById("themeToggle");
-  const savedTheme = localStorage.getItem("lingoplay-theme");
-  if (savedTheme === "dark") document.body.classList.add("dark");
+  localStorage.setItem("lingoplay-theme", "light");
+  document.body.classList.remove("dark");
 
   function updateThemeIcon() {
     if (!themeToggle) return;
@@ -1068,8 +1068,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (themeToggle) {
     themeToggle.addEventListener("click", () => {
-      document.body.classList.toggle("dark");
-      localStorage.setItem("lingoplay-theme", document.body.classList.contains("dark") ? "dark" : "light");
+      document.body.classList.remove("dark");
+      localStorage.setItem("lingoplay-theme", "light");
       updateThemeIcon();
     });
   }
