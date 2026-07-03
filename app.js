@@ -140,7 +140,7 @@ async function loadWords() {
         </div>
         <p><b>${escapeHtml(w.meaning || "Chưa có nghĩa")}</b></p>
         <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
-        <button class="speak" type="button" onclick='speak(${JSON.stringify(w.word || "")})' aria-label="Nghe phát âm">
+        <button class="speak" type="button" data-speak=${JSON.stringify(w.word || "")} aria-label="Nghe phát âm">
           <span aria-hidden="true">🔊</span>
         </button>
       </article>
@@ -169,7 +169,7 @@ async function loadPhrases() {
   $("#phraseList").innerHTML = data.items.length ? data.items.map(p => `
     <div class="card phrase-item">
       <div><strong>${escapeHtml(p.phrase)}</strong><br><span>${escapeHtml(p.meaning)}</span></div>
-      <button class="ghost" onclick='speak(${JSON.stringify(p.phrase)})'>🔊 Nghe</button>
+      <button class="ghost" type="button" data-speak=${JSON.stringify(p.phrase)}>🔊 Nghe</button>
     </div>
   `).join("") : `<div class="card empty">Chưa có cụm nói cho cấp này.</div>`;
 }
@@ -231,6 +231,22 @@ function speak(text) {
     setTimeout(playOnce, 500);
   }
 }
+
+// Không dùng onclick nội tuyến vì CSP bảo mật sẽ chặn.
+document.addEventListener("click", event => {
+  const speakButton = event.target.closest("[data-speak]");
+  if (speakButton) {
+    event.preventDefault();
+    speak(speakButton.dataset.speak || speakButton.textContent || "");
+    return;
+  }
+
+  const lookupButton = event.target.closest("[data-lookup]");
+  if (lookupButton) {
+    event.preventDefault();
+    lookupWord(lookupButton.dataset.lookup || "");
+  }
+});
 
 // ===== ÂM THANH GIAO DIỆN & TRÒ CHƠI =====
 let soundEnabled = localStorage.getItem("lingoplay-sound") !== "off";
@@ -721,8 +737,8 @@ function renderLookup(result) {
         <div class="definition-item"><b>${i+1}.</b> ${escapeHtml(d.definition)}${d.example ? `<br><small>Ví dụ: ${escapeHtml(d.example)}</small>` : ""}</div>
       `).join("")}
     </div>`).join("");
-  const synonymHtml = (result.synonyms || []).length ? `<div class="dictionary-block"><h4>Từ liên quan / đồng nghĩa</h4><div class="word-tags">${result.synonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
-  const antonymHtml = (result.antonyms || []).length ? `<div class="dictionary-block"><h4>Từ trái nghĩa</h4><div class="word-tags">${result.antonyms.map(x=>`<button class="word-tag" onclick='lookupWord(${JSON.stringify(x)})'>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
+  const synonymHtml = (result.synonyms || []).length ? `<div class="dictionary-block"><h4>Từ liên quan / đồng nghĩa</h4><div class="word-tags">${result.synonyms.map(x=>`<button class="word-tag" type="button" data-lookup=${JSON.stringify(x)}>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
+  const antonymHtml = (result.antonyms || []).length ? `<div class="dictionary-block"><h4>Từ trái nghĩa</h4><div class="word-tags">${result.antonyms.map(x=>`<button class="word-tag" type="button" data-lookup=${JSON.stringify(x)}>${escapeHtml(x)}</button>`).join("")}</div></div>` : "";
   const localHtml = (result.local_items || []).length ? `<div class="local-results">Đã tìm thấy ${result.local_items.length} kết quả liên quan trong SQLite.</div>` : "";
   $("#lookupResult").classList.remove("empty-state");
   $("#lookupResult").innerHTML = `
