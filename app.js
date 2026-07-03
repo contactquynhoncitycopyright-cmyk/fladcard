@@ -1358,3 +1358,120 @@ $('#topicLevel')?.addEventListener('change',()=>{loadTopics();});
 $('#reloadTopicsBtn')?.addEventListener('click',loadTopics);
 $('#closeTopicBtn')?.addEventListener('click',()=>{$('#topicWordSection')?.classList.add('hidden');activeTopicKey='';});
 $('#topicSearch')?.addEventListener('input',()=>{clearTimeout(topicSearchTimer);topicSearchTimer=setTimeout(()=>{if(activeTopicKey)loadTopicWords(activeTopicKey)},300);});
+
+// ===== HIỆU ỨNG TRANG WEB: TUYẾT RƠI / RỒNG BAY =====
+(() => {
+  const STORAGE_KEY = 'lingoplay_visual_effect';
+  const validModes = new Set(['none', 'snow', 'dragon']);
+  let currentMode = validModes.has(localStorage.getItem(STORAGE_KEY)) ? localStorage.getItem(STORAGE_KEY) : 'snow';
+  let dragonTimer = null;
+
+  const layer = document.createElement('div');
+  layer.className = 'fx-layer';
+  layer.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(layer);
+
+  const control = document.createElement('div');
+  control.className = 'fx-control';
+  control.innerHTML = `
+    <div id="fxPanel" class="fx-panel hidden" role="dialog" aria-label="Chọn hiệu ứng">
+      <strong>Hiệu ứng giao diện</strong>
+      <div class="fx-options">
+        <button class="fx-option" type="button" data-fx-mode="snow"><i data-lucide="snowflake"></i> Tuyết rơi</button>
+        <button class="fx-option" type="button" data-fx-mode="dragon"><i data-lucide="wind"></i> Rồng bay</button>
+        <button class="fx-option" type="button" data-fx-mode="none"><i data-lucide="circle-off"></i> Tắt hiệu ứng</button>
+      </div>
+      <small class="fx-note">Lựa chọn được lưu riêng trên thiết bị này.</small>
+    </div>
+    <button id="fxToggle" class="fx-toggle" type="button" aria-label="Hiệu ứng giao diện" aria-expanded="false"><i data-lucide="sparkles"></i></button>`;
+  document.body.appendChild(control);
+
+  const panel = control.querySelector('#fxPanel');
+  const toggle = control.querySelector('#fxToggle');
+
+  function clearEffects(){
+    layer.replaceChildren();
+    if(dragonTimer){ clearInterval(dragonTimer); dragonTimer = null; }
+  }
+
+  function createSnow(){
+    const count = window.matchMedia('(max-width: 700px)').matches ? 30 : 60;
+    const fragment = document.createDocumentFragment();
+    for(let i=0;i<count;i++){
+      const flake = document.createElement('span');
+      flake.className = 'fx-snowflake';
+      const size = 2 + Math.random() * 5;
+      flake.style.left = `${Math.random()*100}%`;
+      flake.style.width = `${size}px`;
+      flake.style.height = `${size}px`;
+      flake.style.opacity = `${0.35 + Math.random()*0.6}`;
+      flake.style.animationDuration = `${7 + Math.random()*10}s`;
+      flake.style.animationDelay = `${-Math.random()*16}s`;
+      flake.style.setProperty('--drift', `${-70 + Math.random()*140}px`);
+      fragment.appendChild(flake);
+    }
+    layer.appendChild(fragment);
+  }
+
+  function dragonSvg(){
+    return `<svg viewBox="0 0 300 130" role="img" aria-label="Rồng đang bay">
+      <defs><linearGradient id="dragonGradient" x1="0" x2="1"><stop offset="0" stop-color="#6d4aff"/><stop offset=".55" stop-color="#a54cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs>
+      <path class="wing body" d="M130 65 C100 5 45 4 62 48 C75 82 112 88 144 78 C121 66 97 45 86 29 C112 43 130 55 151 70 Z"/>
+      <path class="wing body" d="M155 69 C168 18 226 8 214 49 C205 78 181 88 153 82 C170 69 190 48 196 31 C178 46 165 58 151 73 Z"/>
+      <path class="body" d="M45 82 C82 66 112 62 155 68 C192 74 225 66 246 45 C237 71 219 86 190 92 C155 100 121 91 89 91 C68 91 53 97 34 108 C44 94 55 87 74 82 Z"/>
+      <path class="body" d="M229 49 C245 28 269 27 281 41 C269 42 263 46 257 55 C272 55 284 63 290 75 C272 70 256 67 241 72 Z"/>
+      <path class="accent" d="M247 42 l8 -17 5 16 12 -13 -2 18z"/>
+      <circle class="eye" cx="267" cy="47" r="3.2"/><circle cx="268" cy="47" r="1.3" fill="#111"/>
+      <path class="accent" d="M88 84 l-20 20 9-23 -23 8 18-17z"/>
+    </svg>`;
+  }
+
+  function spawnDragon(){
+    const dragon = document.createElement('div');
+    dragon.className = 'fx-dragon';
+    dragon.style.setProperty('--dragon-y', `${8 + Math.random()*48}vh`);
+    dragon.style.setProperty('--dragon-duration', `${15 + Math.random()*7}s`);
+    dragon.innerHTML = dragonSvg();
+    layer.appendChild(dragon);
+    dragon.addEventListener('animationend', () => dragon.remove(), {once:true});
+  }
+
+  function createDragons(){
+    spawnDragon();
+    dragonTimer = setInterval(spawnDragon, 18000);
+  }
+
+  function applyMode(mode){
+    currentMode = validModes.has(mode) ? mode : 'none';
+    localStorage.setItem(STORAGE_KEY, currentMode);
+    clearEffects();
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      if(currentMode === 'snow') createSnow();
+      if(currentMode === 'dragon') createDragons();
+    }
+    control.querySelectorAll('[data-fx-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.fxMode === currentMode));
+  }
+
+  toggle.addEventListener('click', () => {
+    const opening = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !opening);
+    toggle.setAttribute('aria-expanded', String(opening));
+  });
+  control.addEventListener('click', event => {
+    const button = event.target.closest('[data-fx-mode]');
+    if(!button) return;
+    applyMode(button.dataset.fxMode);
+    panel.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('click', event => {
+    if(!control.contains(event.target)){
+      panel.classList.add('hidden');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+  window.addEventListener('resize', () => { if(currentMode === 'snow') applyMode('snow'); });
+
+  applyMode(currentMode);
+  if(typeof refreshIcons === 'function') refreshIcons();
+})();
