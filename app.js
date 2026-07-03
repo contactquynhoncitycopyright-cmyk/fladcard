@@ -288,7 +288,7 @@ function escapeHtml(s="") {
 $$(".nav-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
 $$("[data-go]").forEach(b => b.onclick = () => showView(b.dataset.go));
 $("#authBtn").onclick = () => openAuth("login");
-$("#openRegister").onclick = () => openAuth("register");
+if ($("#openRegister")) $("#openRegister").onclick = () => openAuth("register");
 $("#closeModal").onclick = () => $("#authModal").classList.add("hidden");
 $("#loginTab").onclick = () => switchAuth("login");
 $("#registerTab").onclick = () => switchAuth("register");
@@ -368,9 +368,46 @@ $("#csvImportForm").onsubmit = async e => {
 };
 
 
-// Giao diện mới: icon, theme, menu mobile và tìm kiếm nhanh.
+
+// Giao diện mới: icon nội bộ, theme, menu mobile và tìm kiếm nhanh.
+const LOCAL_ICONS = {
+  "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  "messages-square": '<path d="M7 8h10M7 12h6"/><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>',
+  "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  "arrow-right": '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  "moon": '<path d="M20 15.5A8 8 0 1 1 8.5 4 6.5 6.5 0 0 0 20 15.5z"/>',
+  "sun": '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>',
+  "house": '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/>',
+  "book-open": '<path d="M2 5.5A3.5 3.5 0 0 1 5.5 2H11v18H5.5A3.5 3.5 0 0 0 2 23z"/><path d="M22 5.5A3.5 3.5 0 0 0 18.5 2H13v18h5.5A3.5 3.5 0 0 1 22 23z"/>',
+  "gamepad-2": '<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M7 5h10a5 5 0 0 1 4.8 6.4l-1.2 4A3 3 0 0 1 17.7 18l-2.2-2H8.5l-2.2 2a3 3 0 0 1-4.9-2.6l-1.2-4A5 5 0 0 1 5 5z"/>',
+  "languages": '<path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1"/><path d="m14 20 4-9 4 9M16 16h4"/>',
+  "shield-cog": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="2"/><path d="M12 8v2M12 14v2M8 12h2M14 12h2"/>',
+  "rocket": '<path d="M4.5 16.5c-1.5 1.3-2 4-2 4s2.7-.5 4-2M9 15l-3-3a22 22 0 0 1 10-9l5-1-1 5a22 22 0 0 1-9 10z"/><circle cx="15" cy="8" r="1.5"/>',
+  "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+  "play": '<path d="m6 4 14 8-14 8z"/>',
+  "heart": '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
+  "brain": '<path d="M9.5 4A3.5 3.5 0 0 0 6 7.5v.2A3.5 3.5 0 0 0 4 14a3.5 3.5 0 0 0 3.5 3.5H9V4zM14.5 4A3.5 3.5 0 0 1 18 7.5v.2A3.5 3.5 0 0 1 20 14a3.5 3.5 0 0 1-3.5 3.5H15V4z"/><path d="M9 8H7M15 8h2M9 13H6M15 13h3M9 17v3M15 17v3"/>',
+  "volume-2": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/>',
+  "plus": '<path d="M12 5v14M5 12h14"/>',
+  "upload": '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
+  "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
+};
+
 function refreshIcons() {
-  if (window.lucide) window.lucide.createIcons();
+  document.querySelectorAll("i[data-lucide]").forEach(node => {
+    const name = node.getAttribute("data-lucide");
+    const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.innerHTML = body;
+    node.replaceWith(svg);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -388,13 +425,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeToggle = document.getElementById("themeToggle");
   const savedTheme = localStorage.getItem("lingoplay-theme");
   if (savedTheme === "dark") document.body.classList.add("dark");
+
+  function updateThemeIcon() {
+    if (!themeToggle) return;
+    themeToggle.innerHTML = document.body.classList.contains("dark")
+      ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
+    refreshIcons();
+  }
+  updateThemeIcon();
+
   if (themeToggle) {
     themeToggle.addEventListener("click", () => {
       document.body.classList.toggle("dark");
       localStorage.setItem("lingoplay-theme", document.body.classList.contains("dark") ? "dark" : "light");
-      themeToggle.innerHTML = document.body.classList.contains("dark")
-        ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
-      refreshIcons();
+      updateThemeIcon();
     });
   }
 
