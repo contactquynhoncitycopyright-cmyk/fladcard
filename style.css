@@ -1401,3 +1401,281 @@ a,button{transition:background-color .18s ease,border-color .18s ease,transform 
   .learning-card{min-height:195px}
   .page-shell{background:#f8f9ff!important}
 }
+
+/* =========================================================
+   LINGOPLAY SOFT MONO THEME — trắng, đen và xám dịu mắt
+   ========================================================= */
+:root,
+html[data-theme="dark"],
+body.dark,
+body[data-theme="dark"] {
+  --bg: #f5f5f3 !important;
+  --surface: #ffffff !important;
+  --surface-2: #f0f0ed !important;
+  --surface-3: #e7e7e3 !important;
+  --text: #171717 !important;
+  --text-secondary: #555552 !important;
+  --muted: #777772 !important;
+  --border: #d8d8d3 !important;
+  --primary: #202020 !important;
+  --primary-hover: #000000 !important;
+  --accent: #444440 !important;
+  --shadow: 0 8px 24px rgba(0,0,0,.07) !important;
+}
+
+html, body {
+  background: #f5f5f3 !important;
+  color: #171717 !important;
+}
+
+body,
+input,
+button,
+select,
+textarea {
+  color: #171717 !important;
+}
+
+header,
+.topbar,
+.sidebar,
+.side-panel,
+.main-header,
+nav {
+  background: rgba(255,255,255,.96) !important;
+  color: #171717 !important;
+  border-color: #deded9 !important;
+  box-shadow: none !important;
+}
+
+main,
+.main-content,
+.page,
+.content,
+.dashboard {
+  background: #f5f5f3 !important;
+}
+
+.card,
+.panel,
+.widget,
+.stat-card,
+.lesson-card,
+.progress-card,
+.profile-card,
+.topic-card,
+.word-card,
+.phrase-card,
+.game-card,
+.review-card,
+.news-card,
+.ranking-card,
+.modal-content,
+.dropdown-menu,
+.auth-card {
+  background: #ffffff !important;
+  color: #171717 !important;
+  border-color: #d8d8d3 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.06) !important;
+}
+
+/* Xóa các mảng màu đậm trước đây */
+.lesson-card,
+.lesson-card:nth-child(n),
+.progress-card,
+.topic-card,
+.review-card,
+.game-card {
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+
+h1,h2,h3,h4,h5,h6,
+.title,
+.card-title,
+.section-title,
+.brand,
+.logo {
+  color: #151515 !important;
+}
+
+p,
+small,
+.subtitle,
+.description,
+.meta,
+.card-subtitle,
+.text-muted {
+  color: #656560 !important;
+}
+
+a {
+  color: #242424 !important;
+}
+
+a:hover {
+  color: #000000 !important;
+}
+
+button,
+.btn,
+.primary-btn,
+.action-btn,
+.cta-btn {
+  background: #202020 !important;
+  color: #ffffff !important;
+  border-color: #202020 !important;
+  box-shadow: none !important;
+}
+
+button:hover,
+.btn:hover,
+.primary-btn:hover,
+.action-btn:hover,
+.cta-btn:hover {
+  background: #000000 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.btn-secondary,
+.secondary-btn,
+.ghost-btn,
+.icon-btn,
+.filter-btn,
+.tab-btn {
+  background: #ffffff !important;
+  color: #202020 !important;
+  border-color: #bdbdb7 !important;
+}
+
+.btn-secondary:hover,
+.secondary-btn:hover,
+.ghost-btn:hover,
+.icon-btn:hover,
+.filter-btn:hover,
+.tab-btn:hover,
+.tab-btn.active,
+.nav-item.active,
+.menu-item.active {
+  background: #ededE9 !important;
+  color: #000000 !important;
+  border-color: #90908a !important;
+}
+
+input,
+textarea,
+select,
+.search-box,
+.form-control {
+  background: #ffffff !important;
+  color: #171717 !important;
+  border-color: #cfcfca !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.form-control:focus {
+  border-color: #333333 !important;
+  box-shadow: 0 0 0 3px rgba(0,0,0,.09) !important;
+}
+
+.progress,
+.progress-track,
+.progress-bar-bg {
+  background: #e4e4df !important;
+}
+
+.progress-fill,
+.progress-bar,
+.xp-fill {
+  background: #252525 !important;
+  background-image: none !important;
+}
+
+.badge,
+.tag,
+.level-badge,
+.language-badge,
+.status-badge {
+  background: #ecece8 !important;
+  color: #272727 !important;
+  border-color: #d0d0cb !important;
+}
+
+/* Icon đơn sắc, vẫn rõ */
+svg,
+.icon,
+.lucide {
+  color: #303030;
+  stroke: currentColor;
+}
+
+/* Hero vẫn có ảnh nhưng sáng và ít tương phản */
+.hero,
+.hero-section,
+.welcome-banner {
+  background-color: #e9e9e5 !important;
+  color: #171717 !important;
+  border-color: #d2d2cd !important;
+}
+
+.hero::before,
+.hero-section::before,
+.welcome-banner::before {
+  background: rgba(255,255,255,.45) !important;
+}
+
+.hero img,
+.hero-section img,
+.welcome-banner img {
+  filter: grayscale(100%) contrast(.85) brightness(1.08) !important;
+  opacity: .72 !important;
+}
+
+/* Menu trái */
+.nav-item,
+.menu-item,
+.sidebar a {
+  color: #3f3f3c !important;
+}
+
+.nav-item:hover,
+.menu-item:hover,
+.sidebar a:hover {
+  background: #efefeb !important;
+  color: #111111 !important;
+}
+
+/* Thông báo và trạng thái giữ dịu mắt */
+.alert,
+.toast,
+.notice {
+  background: #ffffff !important;
+  color: #202020 !important;
+  border-color: #bdbdb7 !important;
+}
+
+/* Hiệu ứng nền giảm độ nhiễu */
+.snowflake,
+.effect-particle {
+  opacity: .28 !important;
+  filter: grayscale(100%) !important;
+}
+
+.flying-dragon,
+.dragon-effect {
+  opacity: .18 !important;
+  filter: grayscale(100%) !important;
+}
+
+/* Tương phản vừa phải trên điện thoại */
+@media (max-width: 768px) {
+  .card,
+  .panel,
+  .lesson-card,
+  .topic-card {
+    box-shadow: 0 4px 14px rgba(0,0,0,.05) !important;
+  }
+}
