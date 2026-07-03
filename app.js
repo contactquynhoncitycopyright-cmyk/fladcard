@@ -410,14 +410,24 @@ function refreshIcons() {
     const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "24");
+    svg.setAttribute("height", "24");
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
     svg.setAttribute("stroke-width", "2");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("aria-hidden", "true");
-    svg.innerHTML = body;
-    node.replaceWith(svg);
+    svg.innerHTML = body; 
+    svg.style.display = "block";
+    svg.style.margin = "0";
+    svg.style.flexShrink = "0";
+node.style.display = "inline-flex";
+node.style.alignItems = "center";
+node.style.justifyContent = "center";
+node.style.lineHeight = "1";
+    node.innerHTML = "";
+    node.appendChild(svg);
   });
 }
 
