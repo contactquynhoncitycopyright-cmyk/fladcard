@@ -9,10 +9,24 @@ from vocabulary_data import VOCABULARY, PHRASES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PUBLIC_DIR = BASE_DIR
-DB_URL = os.getenv('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'data', 'lingoplay.db'))
-if DB_URL.startswith('postgres://'):
-    DB_URL = DB_URL.replace('postgres://', 'postgresql://', 1)
+DB_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///" + os.path.join(BASE_DIR, "data", "lingoplay.db")
+)
 
+# Bắt SQLAlchemy sử dụng Psycopg 3
+if DB_URL.startswith("postgres://"):
+    DB_URL = DB_URL.replace(
+        "postgres://",
+        "postgresql+psycopg://",
+        1
+    )
+elif DB_URL.startswith("postgresql://"):
+    DB_URL = DB_URL.replace(
+        "postgresql://",
+        "postgresql+psycopg://",
+        1
+    )
 app = Flask(__name__, static_folder=None)
 app.config.update(
     SECRET_KEY=os.getenv('SECRET_KEY', 'change-this-in-production-' + os.urandom(12).hex()),
