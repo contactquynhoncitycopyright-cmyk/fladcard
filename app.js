@@ -6,20 +6,36 @@ let currentQuestion = null;
 let currentLookup = null;
 let suggestionTimer = null;
 let insightsLoadedAt = 0;
+let csrfToken = "";
 
 const levels = {
   english: ["A1","A2","B1","B2","C1","C2"],
   chinese: ["HSK1","HSK2","HSK3","HSK4","HSK5","HSK6"]
 };
 
-async function api(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: "include",
-    headers: {"Content-Type":"application/json", ...(options.headers || {})},
-    ...options
-  });
+async function ensureCsrfToken(force = false) {
+  if (csrfToken && !force) return csrfToken;
+  const res = await fetch('/api/security/csrf', {credentials:'include', cache:'no-store'});
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
+  if (!res.ok || !data.csrf_token) throw new Error('Không thể tạo phiên bảo mật. Hãy tải lại trang.');
+  csrfToken = data.csrf_token;
+  return csrfToken;
+}
+
+async function api(url, options = {}, retryCsrf = true) {
+  const method = String(options.method || 'GET').toUpperCase();
+  const unsafe = ['POST','PUT','PATCH','DELETE'].includes(method);
+  const headers = {...(options.headers || {})};
+  if (unsafe) headers['X-CSRF-Token'] = await ensureCsrfToken();
+  if (!(options.body instanceof FormData) && options.body !== undefined) headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  const res = await fetch(url, {credentials:'include', cache:'no-store', ...options, headers});
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 403 && retryCsrf && String(data.error || '').includes('bảo mật')) {
+    await ensureCsrfToken(true);
+    return api(url, options, false);
+  }
+  if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra');
+  if (data.csrf_token) csrfToken = data.csrf_token;
   return data;
 }
 
@@ -422,34 +438,41 @@ function renderProfile() {
   renderAccountProgress();
 }
 
-function newGame() {
-  playUiSound("start");
-  if (currentWords.length < 2) {
-    $("#gameMessage").textContent = "Hãy chọn cấp có ít nhất 2 từ ở mục Học từ.";
-    return;
+async function newGame() {
+  playUiSound('start');
+  const language = $('#languageSelect')?.value || 'english';
+  const level = $('#levelSelect')?.value || (language === 'chinese' ? 'HSK1' : 'A1');
+  $('#gameMessage').textContent = 'Đang tạo câu hỏi...';
+  try {
+    const data = await api('/api/game/start', {method:'POST', body:JSON.stringify({language, level})});
+    currentQuestion = {token:data.token};
+    $('#gameWord').textContent = data.word;
+    $('#gameOptions').innerHTML = data.options.map(o => `<button data-id="${o.id}">${escapeHtml(o.meaning)}</button>`).join('');
+    $('#gameMessage').textContent = '';
+    $$('#gameOptions button').forEach(btn => btn.onclick = () => answerGame(Number(btn.dataset.id)));
+  } catch (e) {
+    $('#gameMessage').textContent = e.message;
   }
-  const answer = currentWords[Math.floor(Math.random()*currentWords.length)];
-  const shuffled = [...currentWords].sort(() => Math.random()-.5);
-  const opts = [answer, ...shuffled.filter(x=>x.id!==answer.id).slice(0,3)].sort(() => Math.random()-.5);
-  currentQuestion = answer;
-  $("#gameWord").textContent = answer.word;
-  $("#gameOptions").innerHTML = opts.map(o => `<button data-id="${o.id}">${escapeHtml(o.meaning)}</button>`).join("");
-  $("#gameMessage").textContent = "";
-  $$("#gameOptions button").forEach(btn => btn.onclick = () => answerGame(Number(btn.dataset.id)));
 }
 
 async function answerGame(id) {
-  if (!currentQuestion) return;
-  if (id === currentQuestion.id) {
-    playUiSound("correct");
-    $("#gameMessage").textContent = "Chính xác! +10 XP";
-    if (currentUser) {
-      await api("/api/progress/xp", {method:"POST", body:JSON.stringify({amount:10})});
-      await refreshUser();
+  if (!currentQuestion?.token) return;
+  const buttons = $$('#gameOptions button');
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const data = await api('/api/game/answer', {method:'POST', body:JSON.stringify({token:currentQuestion.token, answer_id:id})});
+    if (data.correct) {
+      playUiSound('correct');
+      $('#gameMessage').textContent = data.earned_xp ? `Chính xác! +${data.earned_xp} XP` : 'Chính xác! Đăng nhập để nhận XP.';
+      if (currentUser) await refreshUser();
+    } else {
+      playUiSound('wrong');
+      $('#gameMessage').textContent = `Chưa đúng. Đáp án: ${data.correct_meaning}`;
     }
-  } else {
-    playUiSound("wrong");
-    $("#gameMessage").textContent = `Chưa đúng. Đáp án: ${currentQuestion.meaning}`;
+  } catch (e) {
+    $('#gameMessage').textContent = e.message;
+  } finally {
+    currentQuestion = null;
   }
 }
 
@@ -666,6 +689,22 @@ if ($("#profileLogoutBtn")) $("#profileLogoutBtn").onclick = async () => {
   await refreshUser();
   showView("home");
 };
+if ($('#changePasswordForm')) $('#changePasswordForm').onsubmit = async e => {
+  e.preventDefault();
+  const form=e.currentTarget;
+  const body=Object.fromEntries(new FormData(form).entries());
+  const message=$('#securityMessage');
+  try {
+    const data=await api('/api/auth/change-password',{method:'POST',body:JSON.stringify(body)});
+    message.textContent=data.message || 'Đổi mật khẩu thành công.';
+    message.classList.remove('error'); form.reset();
+  } catch(err) { message.textContent=err.message; message.classList.add('error'); }
+};
+if ($('#logoutAllBtn')) $('#logoutAllBtn').onclick = async () => {
+  if (!confirm('Đăng xuất tài khoản khỏi tất cả thiết bị?')) return;
+  try { await api('/api/auth/logout-all',{method:'POST'}); csrfToken=''; currentUser=null; await ensureCsrfToken(true); await refreshUser(); showView('home'); }
+  catch(err) { $('#securityMessage').textContent=err.message; }
+};
 if ($("#languageSelect")) $("#languageSelect").onchange = () => { fillLevels(); saveLearningPreference(); renderProfile(); loadWords(); };
 $$(".course-card").forEach(card => card.onclick = () => selectLanguage(card.dataset.language));
 if ($("#levelSelect")) $("#levelSelect").onchange = () => { saveLearningPreference(); renderLanguageUI($("#languageSelect").value); renderProfile(); loadWords(); };
@@ -689,7 +728,8 @@ if ($("#wordForm")) $("#wordForm").onsubmit = async e => {
 };
 
 if ($("#languageSelect") && $("#levelSelect")) restoreLearningPreference();
-refreshUser()
+ensureCsrfToken()
+  .then(() => refreshUser())
   .then(() => {
     if ($("#languageSelect") && $("#levelSelect") && $("#wordGrid")) return loadWords();
   })
@@ -729,7 +769,8 @@ if ($("#csvImportForm")) $("#csvImportForm").onsubmit = async e => {
   $("#csvImportMessage").textContent = "Đang nhập dữ liệu...";
   $("#csvImportErrors").innerHTML = "";
   try {
-    const res = await fetch("/api/admin/words/import", { method: "POST", body: fd, credentials: "same-origin" });
+    const token = await ensureCsrfToken();
+    const res = await fetch("/api/admin/words/import", { method: "POST", body: fd, credentials: "same-origin", headers:{"X-CSRF-Token":token} });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Nhập CSV thất bại");
     $("#csvImportMessage").textContent = `Hoàn tất: thêm ${data.added}, cập nhật ${data.updated}, bỏ qua ${data.skipped}. Tổng kho: ${data.total} từ.`;

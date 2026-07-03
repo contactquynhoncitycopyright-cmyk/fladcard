@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=305">
+  <link rel="stylesheet" href="./style.css?v=401">
 </head>
 <body>
   <div class="app-frame">
@@ -285,6 +285,17 @@
               <button id="profileLearnBtn" class="btn btn-primary" type="button"><i data-lucide="book-open"></i> Tiếp tục học</button>
               <button id="profileLogoutBtn" class="btn btn-secondary" type="button">Đăng xuất</button>
             </div>
+            <section class="profile-security-panel">
+              <div class="profile-section-title"><i data-lucide="shield-cog"></i><div><h3>Bảo mật tài khoản</h3><p>Đổi mật khẩu và kiểm soát các phiên đăng nhập.</p></div></div>
+              <form id="changePasswordForm" class="security-form">
+                <label>Mật khẩu hiện tại<input type="password" name="current_password" autocomplete="current-password" required /></label>
+                <label>Mật khẩu mới<input type="password" name="new_password" autocomplete="new-password" minlength="10" required /></label>
+                <label>Nhập lại mật khẩu mới<input type="password" name="confirm_password" autocomplete="new-password" minlength="10" required /></label>
+                <small>Tối thiểu 10 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
+                <div class="security-actions"><button class="btn btn-primary" type="submit">Đổi mật khẩu</button><button id="logoutAllBtn" class="btn btn-secondary" type="button">Đăng xuất mọi thiết bị</button></div>
+                <p id="securityMessage" class="form-message"></p>
+              </form>
+            </section>
           </section>
         </div>
       </section>
@@ -331,12 +342,12 @@
       <button class="modal-close" id="closeModal">×</button>
       <div class="modal-brand"><div class="brand-mark"><i data-lucide="messages-square"></i></div><div><strong>LingoPlay</strong><small>Học ngoại ngữ dễ dàng hơn</small></div></div>
       <div class="auth-tabs"><button id="loginTab" class="active">Đăng nhập</button><button id="registerTab">Đăng ký</button></div>
-      <form id="loginForm" class="auth-form"><h3>Chào mừng trở lại</h3><p>Đăng nhập để tiếp tục hành trình học tập.</p><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Nhập mật khẩu" required /><button class="btn btn-primary btn-large">Đăng nhập</button></form>
-      <form id="registerForm" class="auth-form hidden"><h3>Tạo tài khoản mới</h3><p>Bắt đầu học và lưu tiến độ của bạn.</p><label>Họ tên</label><input name="name" placeholder="Nhập họ tên" required /><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Từ 8 ký tự" required /><button class="btn btn-primary btn-large">Đăng ký</button></form>
+      <form id="loginForm" class="auth-form"><h3>Chào mừng trở lại</h3><p>Đăng nhập để tiếp tục hành trình học tập.</p><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required /><button class="btn btn-primary btn-large">Đăng nhập</button></form>
+      <form id="registerForm" class="auth-form hidden"><h3>Tạo tài khoản mới</h3><p>Bắt đầu học và lưu tiến độ của bạn.</p><label>Họ tên</label><input name="name" placeholder="Nhập họ tên" required /><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Ít nhất 10 ký tự mạnh" autocomplete="new-password" minlength="10" required /><button class="btn btn-primary btn-large">Đăng ký</button></form>
       <p id="authMessage" class="auth-message"></p>
     </div>
   </div>
 
-  <script src="./app.js?v=305"></script>
+  <script src="./app.js?v=401"></script>
 </body>
 </html>

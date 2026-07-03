@@ -1,4 +1,4 @@
-import os, time, json, urllib.parse, urllib.request, csv, io, xml.etree.ElementTree as ET
+import os, time, json, urllib.parse, urllib.request, csv, io, secrets, re, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,8 +25,9 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE', '0') == '1',
-    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-    MAX_CONTENT_LENGTH=5 * 1024 * 1024,
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
+    MAX_CONTENT_LENGTH=20 * 1024 * 1024,
+    SESSION_REFRESH_EACH_REQUEST=True,
 )
 db = SQLAlchemy(app)
 
@@ -55,6 +56,22 @@ class AuditLog(db.Model):
     action=db.Column(db.String(100), nullable=False); detail=db.Column(db.Text, default='')
     created_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
+class SecurityState(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, unique=True, nullable=False, index=True)
+    failed_logins=db.Column(db.Integer, nullable=False, default=0)
+    locked_until=db.Column(db.DateTime, nullable=True)
+    session_version=db.Column(db.Integer, nullable=False, default=1)
+    last_password_change=db.Column(db.DateTime, nullable=True)
+
+class GameChallenge(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    token=db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id=db.Column(db.Integer, nullable=True, index=True)
+    answer_word_id=db.Column(db.Integer, nullable=False)
+    expires_at=db.Column(db.DateTime, nullable=False)
+    used=db.Column(db.Boolean, nullable=False, default=False)
+
 
 VALID_LEVELS = {
     "english": {"A1","A2","B1","B2","C1","C2"},
@@ -72,6 +89,10 @@ def normalize_csv_row(row):
         return None, "Cấp độ không hợp lệ cho ngôn ngữ đã chọn"
     if not cleaned["word"] or not cleaned["meaning"]:
         return None, "Thiếu word hoặc meaning"
+    
+    for field in CSV_FIELDS:
+        if cleaned[field].startswith(('=', '+', '-', '@')):
+            cleaned[field] = "'" + cleaned[field]
     cleaned["word"] = cleaned["word"][:255]
     cleaned["pronunciation"] = cleaned["pronunciation"][:255]
     cleaned["meaning"] = cleaned["meaning"][:2000]
@@ -80,26 +101,44 @@ def normalize_csv_row(row):
     return cleaned, None
 
 RATE={}
+def client_ip():
+    forwarded=request.headers.get('X-Forwarded-For','').split(',')[0].strip()
+    return forwarded or request.remote_addr or 'unknown'
+
 def limited(bucket, max_calls=30, window=60):
     def deco(fn):
         @wraps(fn)
         def wrap(*a, **kw):
-            key=(bucket, request.remote_addr or 'unknown'); now=time.time(); arr=[x for x in RATE.get(key,[]) if now-x<window]
+            key=(bucket, client_ip()); now=time.time(); arr=[x for x in RATE.get(key,[]) if now-x<window]
             if len(arr)>=max_calls: return jsonify(error='Bạn thao tác quá nhanh. Vui lòng thử lại sau.'),429
             arr.append(now); RATE[key]=arr
             return fn(*a, **kw)
         return wrap
     return deco
 
+def security_state(user_id, create=True):
+    row=SecurityState.query.filter_by(user_id=user_id).first()
+    if not row and create:
+        row=SecurityState(user_id=user_id)
+        db.session.add(row); db.session.flush()
+    return row
+
 def current_user():
     uid=session.get('user_id')
-    return db.session.get(User, uid) if uid else None
+    if not uid: return None
+    u=db.session.get(User, uid)
+    if not u or not u.is_active:
+        session.clear(); return None
+    state=security_state(u.id)
+    if int(session.get('session_version',0)) != int(state.session_version):
+        session.clear(); return None
+    return u
 
 def login_required(fn):
     @wraps(fn)
     def wrap(*a, **kw):
         u=current_user()
-        if not u or not u.is_active: return jsonify(error='Bạn chưa đăng nhập'),401
+        if not u: return jsonify(error='Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn'),401
         return fn(*a, **kw)
     return wrap
 
@@ -111,6 +150,28 @@ def admin_required(fn):
         if u.role!='admin': return jsonify(error='Bạn không có quyền quản trị'),403
         return fn(*a, **kw)
     return wrap
+
+def audit(action, detail=''):
+    u=current_user()
+    db.session.add(AuditLog(user_id=u.id if u else None, action=action[:100], detail=str(detail)[:2000]))
+
+def password_is_strong(value):
+    return (len(value)>=10 and re.search(r'[a-z]',value) and re.search(r'[A-Z]',value)
+            and re.search(r'\d',value) and re.search(r'[^A-Za-z0-9]',value))
+
+def csrf_token():
+    token=session.get('csrf_token')
+    if not token:
+        token=secrets.token_urlsafe(32); session['csrf_token']=token
+    return token
+
+@app.before_request
+def csrf_protection():
+    if request.path.startswith('/api/') and request.method in {'POST','PUT','PATCH','DELETE'}:
+        supplied=request.headers.get('X-CSRF-Token','')
+        expected=session.get('csrf_token','')
+        if not expected or not supplied or not secrets.compare_digest(str(expected),str(supplied)):
+            return jsonify(error='Phiên bảo mật đã hết hạn. Hãy tải lại trang và thử lại.'),403
 
 def user_json(u):
     return {'id':u.id,'name':u.name,'email':u.email,'role':u.role,'xp':u.xp,'is_active':u.is_active,'created_at':u.created_at.isoformat()}
@@ -132,9 +193,17 @@ def cached(key, ttl, loader):
 
 @app.after_request
 def security_headers(resp):
-    resp.headers['X-Content-Type-Options']='nosniff'; resp.headers['X-Frame-Options']='DENY'
+    resp.headers['X-Content-Type-Options']='nosniff'
+    resp.headers['X-Frame-Options']='DENY'
     resp.headers['Referrer-Policy']='strict-origin-when-cross-origin'
-    resp.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
+    resp.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=(), payment=()'
+    resp.headers['Content-Security-Policy']=(
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; "
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+    resp.headers['Cache-Control']='no-store' if request.path.startswith('/api/auth') or request.path.startswith('/api/security') else resp.headers.get('Cache-Control','')
+    if request.is_secure: resp.headers['Strict-Transport-Security']='max-age=31536000; includeSubDomains'
     return resp
 
 @app.route('/')
@@ -149,27 +218,92 @@ def health():
     try: db.session.execute(db.text('SELECT 1')); ok=True
     except Exception: ok=False
     return jsonify(ok=ok, app='LingoPlay Production', database='postgresql' if DB_URL.startswith('postgresql') else 'sqlite')
+@app.get('/api/security/csrf')
+def get_csrf():
+    return jsonify(csrf_token=csrf_token())
+
 @app.get('/api/auth/me')
 def me():
-    u=current_user(); return jsonify(user=user_json(u) if u and u.is_active else None)
+    u=current_user(); return jsonify(user=user_json(u) if u else None)
+
 @app.post('/api/auth/register')
-@limited('register',5,300)
+@limited('register',5,600)
 def register():
-    d=request.get_json(silent=True) or {}; name=str(d.get('name','')).strip()[:100]; email=str(d.get('email','')).strip().lower()[:255]; pw=str(d.get('password',''))
-    if len(name)<2 or '@' not in email or len(pw)<8: return jsonify(error='Tên, email hoặc mật khẩu chưa hợp lệ. Mật khẩu cần ít nhất 8 ký tự.'),400
+    d=request.get_json(silent=True) or {}
+    name=str(d.get('name','')).strip()[:100]
+    email=str(d.get('email','')).strip().lower()[:255]
+    pw=str(d.get('password',''))
+    if len(name)<2 or len(name)>100 or '@' not in email:
+        return jsonify(error='Họ tên hoặc email chưa hợp lệ.'),400
+    if not password_is_strong(pw):
+        return jsonify(error='Mật khẩu cần ít nhất 10 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'),400
     if User.query.filter_by(email=email).first(): return jsonify(error='Email đã được sử dụng'),409
-    u=User(name=name,email=email,password_hash=generate_password_hash(pw),role='user'); db.session.add(u); db.session.commit()
-    session.permanent=True; session['user_id']=u.id; return jsonify(user=user_json(u)),201
+    u=User(name=name,email=email,password_hash=generate_password_hash(pw),role='user',xp=0)
+    db.session.add(u); db.session.flush()
+    state=security_state(u.id)
+    audit('register',f'email={email}; ip={client_ip()}')
+    db.session.commit()
+    session.clear(); session.permanent=True
+    session['user_id']=u.id; session['session_version']=state.session_version; session['csrf_token']=secrets.token_urlsafe(32)
+    return jsonify(user=user_json(u),csrf_token=session['csrf_token']),201
+
 @app.post('/api/auth/login')
-@limited('login',8,300)
+@limited('login-ip',20,600)
 def login():
-    d=request.get_json(silent=True) or {}; email=str(d.get('email','')).strip().lower(); pw=str(d.get('password',''))
+    d=request.get_json(silent=True) or {}
+    email=str(d.get('email','')).strip().lower()[:255]
+    pw=str(d.get('password',''))
     u=User.query.filter_by(email=email).first()
-    if not u or not check_password_hash(u.password_hash,pw): return jsonify(error='Email hoặc mật khẩu không đúng'),401
+    generic='Email hoặc mật khẩu không đúng'
+    if not u:
+        time.sleep(0.25); return jsonify(error=generic),401
+    state=security_state(u.id)
+    now=datetime.now(timezone.utc)
+    locked=state.locked_until
+    if locked and locked.tzinfo is None: locked=locked.replace(tzinfo=timezone.utc)
+    if locked and locked>now:
+        wait=max(1,int((locked-now).total_seconds()//60)+1)
+        return jsonify(error=f'Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau {wait} phút.'),423
+    if not check_password_hash(u.password_hash,pw):
+        state.failed_logins += 1
+        if state.failed_logins>=5:
+            state.locked_until=now+timedelta(minutes=15); state.failed_logins=0
+        audit('login_failed',f'user={u.id}; ip={client_ip()}')
+        db.session.commit(); time.sleep(0.25)
+        return jsonify(error=generic),401
     if not u.is_active: return jsonify(error='Tài khoản đang bị khóa'),403
-    session.clear(); session.permanent=True; session['user_id']=u.id; return jsonify(user=user_json(u))
+    state.failed_logins=0; state.locked_until=None
+    session.clear(); session.permanent=True
+    session['user_id']=u.id; session['session_version']=state.session_version; session['csrf_token']=secrets.token_urlsafe(32)
+    audit('login_success',f'ip={client_ip()}'); db.session.commit()
+    return jsonify(user=user_json(u),csrf_token=session['csrf_token'])
+
 @app.post('/api/auth/logout')
-def logout(): session.clear(); return jsonify(ok=True)
+def logout():
+    session.clear(); return jsonify(ok=True)
+
+@app.post('/api/auth/change-password')
+@login_required
+@limited('change-password',5,600)
+def change_password():
+    u=current_user(); d=request.get_json(silent=True) or {}
+    current=str(d.get('current_password','')); new=str(d.get('new_password','')); confirm=str(d.get('confirm_password',''))
+    if not check_password_hash(u.password_hash,current): return jsonify(error='Mật khẩu hiện tại không đúng'),400
+    if new!=confirm: return jsonify(error='Mật khẩu xác nhận không khớp'),400
+    if not password_is_strong(new): return jsonify(error='Mật khẩu mới cần ít nhất 10 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'),400
+    if check_password_hash(u.password_hash,new): return jsonify(error='Mật khẩu mới phải khác mật khẩu hiện tại'),400
+    u.password_hash=generate_password_hash(new)
+    state=security_state(u.id); state.session_version+=1; state.last_password_change=datetime.now(timezone.utc)
+    session['session_version']=state.session_version
+    audit('password_changed',f'ip={client_ip()}'); db.session.commit()
+    return jsonify(ok=True,message='Đổi mật khẩu thành công. Các thiết bị khác đã bị đăng xuất.')
+
+@app.post('/api/auth/logout-all')
+@login_required
+def logout_all():
+    u=current_user(); state=security_state(u.id); state.session_version+=1
+    audit('logout_all',f'ip={client_ip()}'); db.session.commit(); session.clear()
+    return jsonify(ok=True)
 
 @app.get('/api/words')
 def words():
@@ -182,10 +316,46 @@ def phrases():
     lang=request.args.get('language','english'); level=request.args.get('level','A1')
     rows=Phrase.query.filter_by(language=lang,level=level).order_by(Phrase.id.desc()).limit(200).all()
     return jsonify(items=[{'id':x.id,'language':x.language,'level':x.level,'phrase':x.phrase,'meaning':x.meaning} for x in rows])
+@app.post('/api/game/start')
+@limited('game-start',30,60)
+def game_start():
+    d=request.get_json(silent=True) or {}
+    lang=str(d.get('language','english'))[:20]
+    level=str(d.get('level','A1')).upper().replace(' ','')[:20]
+    rows=Word.query.filter_by(language=lang,level=level).order_by(func.random()).limit(12).all()
+    if len(rows)<2: return jsonify(error='Cấp độ này chưa đủ từ để tạo trò chơi.'),400
+    answer=rows[0]; distractors=rows[1:4]
+    options=[answer]+distractors
+    import random; random.shuffle(options)
+    token=secrets.token_urlsafe(24)
+    u=current_user()
+    db.session.add(GameChallenge(token=token,user_id=u.id if u else None,answer_word_id=answer.id,expires_at=datetime.now(timezone.utc)+timedelta(minutes=5)))
+    db.session.commit()
+    return jsonify(token=token,word=answer.word,options=[{'id':x.id,'meaning':x.meaning} for x in options])
+
+@app.post('/api/game/answer')
+@limited('game-answer',60,60)
+def game_answer():
+    d=request.get_json(silent=True) or {}; token=str(d.get('token',''))[:64]
+    try: answer_id=int(d.get('answer_id',0))
+    except Exception: answer_id=0
+    row=GameChallenge.query.filter_by(token=token).first()
+    now=datetime.now(timezone.utc)
+    if not row or row.used: return jsonify(error='Câu hỏi không còn hợp lệ.'),400
+    expires=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
+    if expires<now: row.used=True; db.session.commit(); return jsonify(error='Câu hỏi đã hết hạn.'),400
+    row.used=True; correct=answer_id==row.answer_word_id
+    earned=0; u=current_user()
+    if correct and u and row.user_id==u.id:
+        u.xp+=10; earned=10
+        audit('game_xp',f'challenge={row.id}; xp=10')
+    correct_word=db.session.get(Word,row.answer_word_id)
+    db.session.commit()
+    return jsonify(correct=correct,earned_xp=earned,xp=u.xp if u else 0,correct_meaning=correct_word.meaning if correct_word else '')
+
 @app.post('/api/progress/xp')
-@login_required
-def xp():
-    u=current_user(); amount=max(0,min(int((request.get_json(silent=True) or {}).get('amount',0)),50)); u.xp+=amount; db.session.commit(); return jsonify(xp=u.xp)
+def deprecated_xp():
+    return jsonify(error='API này đã bị khóa để chống gian lận XP.'),410
 @app.post('/api/words/save')
 @login_required
 def save_word():
@@ -456,15 +626,21 @@ def update_user(uid):
 
 def seed():
     os.makedirs(os.path.join(BASE_DIR,'data'),exist_ok=True); db.create_all()
-    admin_email=os.getenv('ADMIN_EMAIL','admin@lingoplay.local').lower(); admin_pw=os.getenv('ADMIN_PASSWORD','Advip11@')
-    if not User.query.filter_by(email=admin_email).first(): db.session.add(User(name='Quản trị viên',email=admin_email,password_hash=generate_password_hash(admin_pw),role='admin',xp=500))
-    if not User.query.filter_by(email='user@lingoplay.local').first(): db.session.add(User(name='Người dùng mẫu',email='user@lingoplay.local',password_hash=generate_password_hash('User@123'),role='user',xp=120))
+    admin_email=os.getenv('ADMIN_EMAIL','').strip().lower(); admin_pw=os.getenv('ADMIN_PASSWORD','')
+    if admin_email and admin_pw and not User.query.filter_by(email=admin_email).first():
+        if password_is_strong(admin_pw): db.session.add(User(name='Quản trị viên',email=admin_email,password_hash=generate_password_hash(admin_pw),role='admin',xp=0))
+        else: app.logger.warning('ADMIN_PASSWORD chưa đủ mạnh; không tạo admin mới.')
+    demo=User.query.filter_by(email='user@lingoplay.local').first()
+    if demo: db.session.delete(demo)
     for s in VOCABULARY:
         if not Word.query.filter_by(language=s[0],level=s[1],word=s[2]).first():
             db.session.add(Word(language=s[0],level=s[1],word=s[2],pronunciation=s[3],meaning=s[4],example=s[5],topic=s[6]))
     for p in PHRASES:
         if not Phrase.query.filter_by(language=p[0],level=p[1],phrase=p[2]).first():
             db.session.add(Phrase(language=p[0],level=p[1],phrase=p[2],meaning=p[3]))
+    db.session.flush()
+    for user in User.query.all(): security_state(user.id)
+    GameChallenge.query.filter(GameChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     db.session.commit()
 
 with app.app_context(): seed()
