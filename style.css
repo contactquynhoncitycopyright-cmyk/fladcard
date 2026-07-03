@@ -1117,3 +1117,28 @@ button:disabled{opacity:.58;cursor:not-allowed}
 /* Fix missing emoji glyphs in learning cards */
 .card-emoji{display:inline-flex;align-items:center;justify-content:center;line-height:1}
 .card-emoji svg{width:30px;height:30px;stroke-width:2.4}
+
+/* Tăng nhẹ cỡ chữ khu vực "Tiếp tục học gần đây" */
+.recent-strip{
+  font-size:14px;
+  line-height:1.35;
+}
+.recent-strip span{
+  font-size:14px;
+}
+.recent-strip b{
+  font-size:15px;
+  font-weight:800;
+}
+.recent-strip small{
+  font-size:12.5px;
+}
+.recent-strip > strong{
+  font-size:14px;
+}
+@media(max-width:600px){
+  .recent-strip{font-size:13.5px;padding:15px 16px}
+  .recent-strip b{font-size:15px}
+  .recent-strip span{font-size:13.5px}
+  .recent-strip small{font-size:12px}
+}
