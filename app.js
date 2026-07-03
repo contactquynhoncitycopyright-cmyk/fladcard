@@ -175,10 +175,61 @@ async function loadPhrases() {
 }
 
 function speak(text) {
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = $("#languageSelect").value === "chinese" ? "zh-CN" : "en-US";
-  speechSynthesis.speak(u);
+  const value = String(text || "").trim();
+  if (!value) return;
+
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+    alert("Trình duyệt này chưa hỗ trợ đọc từ. Hãy thử Chrome hoặc Edge phiên bản mới.");
+    return;
+  }
+
+  // Tự nhận biết chữ Trung để các nút ở trang chủ vẫn đọc đúng,
+  // không phụ thuộc hoàn toàn vào ô chọn ngôn ngữ.
+  const hasChinese = /[\u3400-\u9FFF]/.test(value);
+  const languageSelect = document.getElementById("languageSelect");
+  const isChinese = hasChinese || languageSelect?.value === "chinese";
+  const lang = isChinese ? "zh-CN" : "en-US";
+
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  synth.resume();
+
+  const play = () => {
+    const utterance = new SpeechSynthesisUtterance(value);
+    utterance.lang = lang;
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    const voices = synth.getVoices();
+    const preferredVoice = voices.find(v =>
+      v.lang && v.lang.toLowerCase().startsWith(isChinese ? "zh" : "en")
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    utterance.onerror = event => {
+      console.error("Không thể phát âm:", event.error);
+      if (event.error !== "interrupted" && event.error !== "canceled") {
+        alert("Không phát được âm thanh. Hãy tăng âm lượng, tắt chế độ im lặng và thử lại bằng Chrome/Edge.");
+      }
+    };
+
+    synth.speak(utterance);
+  };
+
+  // Một số điện thoại tải danh sách giọng đọc chậm.
+  if (synth.getVoices().length) {
+    play();
+  } else {
+    let played = false;
+    const playOnce = () => {
+      if (played) return;
+      played = true;
+      play();
+    };
+    synth.addEventListener("voiceschanged", playOnce, { once: true });
+    setTimeout(playOnce, 500);
+  }
 }
 
 // ===== ÂM THANH GIAO DIỆN & TRÒ CHƠI =====
