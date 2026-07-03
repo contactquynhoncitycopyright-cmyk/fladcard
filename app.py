@@ -1,5 +1,7 @@
-import os, time, json, urllib.parse, urllib.request, csv, io
+import os, time, json, urllib.parse, urllib.request, csv, io, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
@@ -9,24 +11,12 @@ from vocabulary_data import VOCABULARY, PHRASES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PUBLIC_DIR = BASE_DIR
-DB_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///" + os.path.join(BASE_DIR, "data", "lingoplay.db")
-)
+DB_URL = os.getenv('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'data', 'lingoplay.db'))
+if DB_URL.startswith('postgres://'):
+    DB_URL = DB_URL.replace('postgres://', 'postgresql+psycopg://', 1)
+elif DB_URL.startswith('postgresql://'):
+    DB_URL = DB_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
 
-# Bắt SQLAlchemy sử dụng Psycopg 3
-if DB_URL.startswith("postgres://"):
-    DB_URL = DB_URL.replace(
-        "postgres://",
-        "postgresql+psycopg://",
-        1
-    )
-elif DB_URL.startswith("postgresql://"):
-    DB_URL = DB_URL.replace(
-        "postgresql://",
-        "postgresql+psycopg://",
-        1
-    )
 app = Flask(__name__, static_folder=None)
 app.config.update(
     SECRET_KEY=os.getenv('SECRET_KEY', 'change-this-in-production-' + os.urandom(12).hex()),
@@ -265,6 +255,121 @@ def translate():
         if not out:return jsonify(error='Không nhận được bản dịch'),502
         return jsonify(translated=out,source='MyMemory')
     except Exception:return jsonify(error='Dịch vụ dịch đang tạm lỗi. Hãy thử lại sau.'),503
+
+
+LANGUAGE_TREND_PAGES = [
+    ('english', 'Tiếng Anh', 'English_language', '🇬🇧'),
+    ('chinese', 'Tiếng Trung', 'Chinese_language', '🇨🇳'),
+    ('spanish', 'Tiếng Tây Ban Nha', 'Spanish_language', '🇪🇸'),
+    ('japanese', 'Tiếng Nhật', 'Japanese_language', '🇯🇵'),
+    ('korean', 'Tiếng Hàn', 'Korean_language', '🇰🇷'),
+    ('french', 'Tiếng Pháp', 'French_language', '🇫🇷'),
+    ('german', 'Tiếng Đức', 'German_language', '🇩🇪'),
+]
+
+
+def clean_news_title(title):
+    title = str(title or '').strip()
+    # Google News thường nối tên nguồn sau dấu " - ". Giữ tiêu đề gọn hơn.
+    return title.rsplit(' - ', 1)[0].strip()[:220]
+
+
+def format_news_time(value):
+    try:
+        dt = parsedate_to_datetime(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    except Exception:
+        return ''
+
+
+def load_language_news():
+    query = '(học tiếng Anh OR học tiếng Trung OR CEFR OR HSK OR ngoại ngữ)'
+    url = 'https://news.google.com/rss/search?' + urllib.parse.urlencode({
+        'q': query,
+        'hl': 'vi',
+        'gl': 'VN',
+        'ceid': 'VN:vi',
+    })
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'Mozilla/5.0 LingoPlay/2.0',
+        'Accept': 'application/rss+xml, application/xml, text/xml',
+    })
+    with urllib.request.urlopen(req, timeout=12) as response:
+        xml_data = response.read()
+    root = ET.fromstring(xml_data)
+    items = []
+    for node in root.findall('./channel/item')[:18]:
+        title = clean_news_title(node.findtext('title'))
+        link = str(node.findtext('link') or '').strip()
+        published = format_news_time(node.findtext('pubDate'))
+        source_node = node.find('source')
+        source = (source_node.text or '').strip() if source_node is not None else 'Google News'
+        if title and link.startswith(('https://', 'http://')):
+            items.append({
+                'title': title,
+                'url': link,
+                'source': source[:100],
+                'published_at': published,
+            })
+    return {'items': items, 'updated_at': datetime.now(timezone.utc).isoformat()}
+
+
+def fetch_language_views(item, start, end):
+    key, label, page, flag = item
+    url = (
+        'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/'
+        'en.wikipedia/all-access/user/' + urllib.parse.quote(page, safe='') +
+        '/daily/' + start + '/' + end
+    )
+    try:
+        data = ext_json(url, timeout=12)
+        total = sum(int(x.get('views', 0) or 0) for x in data.get('items', []))
+    except Exception:
+        total = 0
+    return {'key': key, 'language': label, 'flag': flag, 'views': total}
+
+
+def load_language_ranking():
+    end_date = datetime.now(timezone.utc).date() - timedelta(days=1)
+    start_date = end_date - timedelta(days=29)
+    start = start_date.strftime('%Y%m%d') + '00'
+    end = end_date.strftime('%Y%m%d') + '00'
+    rows = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(fetch_language_views, item, start, end) for item in LANGUAGE_TREND_PAGES]
+        for future in as_completed(futures):
+            rows.append(future.result())
+    rows.sort(key=lambda x: x['views'], reverse=True)
+    for index, row in enumerate(rows, start=1):
+        row['rank'] = index
+    return {
+        'items': rows,
+        'period_start': start_date.isoformat(),
+        'period_end': end_date.isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'metric': 'Lượt xem bài viết ngôn ngữ trên Wikipedia trong 30 ngày',
+    }
+
+
+@app.get('/api/language-news')
+@limited('language-news', 30, 60)
+def language_news():
+    try:
+        return jsonify(cached('language-news:vi', 1800, load_language_news))
+    except Exception:
+        return jsonify(items=[], updated_at='', warning='Nguồn tin đang tạm thời không phản hồi.')
+
+
+@app.get('/api/language-ranking')
+@limited('language-ranking', 30, 60)
+def language_ranking():
+    try:
+        return jsonify(cached('language-ranking:30d', 21600, load_language_ranking))
+    except Exception:
+        return jsonify(items=[], updated_at='', metric='', warning='Chưa thể cập nhật bảng xu hướng lúc này.')
+
 
 @app.get('/api/admin/stats')
 @admin_required

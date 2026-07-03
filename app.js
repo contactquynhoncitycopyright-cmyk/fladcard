@@ -5,6 +5,7 @@ let currentWords = [];
 let currentQuestion = null;
 let currentLookup = null;
 let suggestionTimer = null;
+let insightsLoadedAt = 0;
 
 const levels = {
   english: ["A1","A2","B1","B2","C1","C2"],
@@ -36,6 +37,7 @@ function showView(name) {
   if (name === "phrases") loadPhrases();
   if (name === "admin") loadAdmin();
   if (name === "profile") renderProfile();
+  if (name === "insights") loadLanguageInsights();
 }
 
 function fillLevels() {
@@ -297,6 +299,9 @@ function toggleSound() {
   soundEnabled = !soundEnabled;
   localStorage.setItem("lingoplay-sound", soundEnabled ? "on" : "off");
   updateSoundButton();
+
+  const refreshInsightsBtn = document.getElementById("refreshInsightsBtn");
+  if (refreshInsightsBtn) refreshInsightsBtn.addEventListener("click", () => loadLanguageInsights(true));
   if (soundEnabled) {
     playUiSound("welcome");
     playIntroMusicOnce();
@@ -462,6 +467,76 @@ async function loadAdmin() {
   `).join("");
 }
 
+
+
+function formatCompactNumber(value) {
+  const n = Number(value) || 0;
+  return new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+}
+
+function formatUpdateTime(value) {
+  if (!value) return "Chưa có dữ liệu";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa có dữ liệu";
+  return `Cập nhật ${date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}`;
+}
+
+function escapeAttribute(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+  })[char]);
+}
+
+async function loadLanguageInsights(force = false) {
+  const newsList = $("#languageNewsList");
+  const rankingList = $("#languageRankingList");
+  if (!newsList || !rankingList) return;
+
+  const now = Date.now();
+  if (!force && insightsLoadedAt && now - insightsLoadedAt < 15 * 60 * 1000) return;
+
+  newsList.innerHTML = '<div class="insights-loading">Đang tải tin tức…</div>';
+  rankingList.innerHTML = '<div class="insights-loading">Đang tải bảng xếp hạng…</div>';
+
+  try {
+    const [news, ranking] = await Promise.all([
+      api("/api/language-news"),
+      api("/api/language-ranking")
+    ]);
+
+    const newsItems = Array.isArray(news.items) ? news.items : [];
+    newsList.innerHTML = newsItems.length ? newsItems.map(item => `
+      <a class="language-news-card" href="${escapeAttribute(item.url)}" target="_blank" rel="noopener noreferrer">
+        <span class="news-source">${escapeHtml(item.source || "Tin ngoại ngữ")}</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <div><time>${item.published_at ? new Date(item.published_at).toLocaleDateString("vi-VN") : "Mới cập nhật"}</time><span>Xem tin <span aria-hidden="true">→</span></span></div>
+      </a>
+    `).join("") : `<div class="insights-empty">${escapeHtml(news.warning || "Chưa có tin mới. Hãy thử cập nhật lại sau.")}</div>`;
+
+    const rankingItems = Array.isArray(ranking.items) ? ranking.items : [];
+    const maxViews = Math.max(...rankingItems.map(item => Number(item.views) || 0), 1);
+    rankingList.innerHTML = rankingItems.length ? rankingItems.map(item => {
+      const percent = Math.max(4, Math.round(((Number(item.views) || 0) / maxViews) * 100));
+      return `
+        <div class="language-ranking-row">
+          <span class="ranking-position">${item.rank}</span>
+          <span class="ranking-flag">${escapeHtml(item.flag || "🌐")}</span>
+          <div class="ranking-language"><strong>${escapeHtml(item.language)}</strong><div class="ranking-bar"><i style="width:${percent}%"></i></div></div>
+          <span class="ranking-value">${formatCompactNumber(item.views)} lượt xem</span>
+        </div>
+      `;
+    }).join("") : `<div class="insights-empty">${escapeHtml(ranking.warning || "Chưa có dữ liệu xếp hạng.")}</div>`;
+
+    if ($("#newsUpdatedAt")) $("#newsUpdatedAt").textContent = formatUpdateTime(news.updated_at);
+    if ($("#rankingUpdatedAt")) $("#rankingUpdatedAt").textContent = formatUpdateTime(ranking.updated_at);
+    if ($("#rankingMetric") && ranking.metric) $("#rankingMetric").textContent = ranking.metric;
+    insightsLoadedAt = Date.now();
+  } catch (error) {
+    const message = escapeHtml(error.message || "Không thể cập nhật dữ liệu.");
+    newsList.innerHTML = `<div class="insights-empty">${message}</div>`;
+    rankingList.innerHTML = `<div class="insights-empty">${message}</div>`;
+  }
+}
 
 function firstDefinition(result) {
   for (const meaning of (result.meanings || [])) {
@@ -691,6 +766,9 @@ const LOCAL_ICONS = {
   "brain": '<path d="M9.5 4A3.5 3.5 0 0 0 6 7.5v.2A3.5 3.5 0 0 0 4 14a3.5 3.5 0 0 0 3.5 3.5H9V4zM14.5 4A3.5 3.5 0 0 1 18 7.5v.2A3.5 3.5 0 0 1 20 14a3.5 3.5 0 0 1-3.5 3.5H15V4z"/><path d="M9 8H7M15 8h2M9 13H6M15 13h3M9 17v3M15 17v3"/>',
   "volume-2": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/>',
   "volume-x": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m16 9 5 5M21 9l-5 5"/>',
+  "newspaper": '<path d="M4 4h13v16H4z"/><path d="M8 8h5M8 12h5M8 16h3"/><path d="M17 8h3v10a2 2 0 0 1-2 2h-1"/>',
+  "bar-chart-3": '<path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16V5"/>',
+  "refresh-cw": '<path d="M20 11a8 8 0 1 0 2 5"/><path d="M20 4v7h-7"/>',
   "plus": '<path d="M12 5v14M5 12h14"/>',
   "upload": '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -729,6 +807,9 @@ function refreshIcons() {
 document.addEventListener("DOMContentLoaded", () => {
   refreshIcons();
   updateSoundButton();
+
+  const refreshInsightsBtn = document.getElementById("refreshInsightsBtn");
+  if (refreshInsightsBtn) refreshInsightsBtn.addEventListener("click", () => loadLanguageInsights(true));
 
   const unlockGuestSound = () => {
     getAudioContext();

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=304">
+  <link rel="stylesheet" href="./style.css?v=305">
 </head>
 <body>
   <div class="app-frame">
@@ -43,6 +43,7 @@
         <button class="nav-btn" data-view="phrases"><i data-lucide="messages-square"></i><span>Cụm nói thực chiến</span></button>
         <button class="nav-btn" data-view="game"><i data-lucide="gamepad-2"></i><span>Trò chơi</span></button>
         <button class="nav-btn" data-view="lookup"><i data-lucide="languages"></i><span>Tra từ & Dịch</span></button>
+        <button class="nav-btn" data-view="insights"><i data-lucide="newspaper"></i><span>Tin tức & Xếp hạng</span></button>
         <button class="nav-btn auth-only hidden" data-view="profile"><i data-lucide="user-round"></i><span>Thông tin cá nhân</span></button>
         <button class="nav-btn admin-only hidden" data-view="admin"><i data-lucide="shield-cog"></i><span>Quản trị</span></button>
       </nav>
@@ -224,6 +225,41 @@
         </div>
       </section>
 
+
+      <section id="insightsView" class="view">
+        <div class="view-header insights-header">
+          <div>
+            <span class="section-kicker">CẬP NHẬT NGOẠI NGỮ</span>
+            <h2>Tin tức & xu hướng ngôn ngữ</h2>
+            <p>Theo dõi tin mới và mức độ quan tâm đến các ngoại ngữ trong 30 ngày gần nhất.</p>
+          </div>
+          <button id="refreshInsightsBtn" class="btn btn-secondary" type="button"><i data-lucide="refresh-cw"></i> Cập nhật</button>
+        </div>
+
+        <div class="insights-grid">
+          <section class="surface-card language-news-panel">
+            <div class="insights-panel-heading">
+              <div><span class="panel-icon"><i data-lucide="newspaper"></i></span><div><h3>Tin ngoại ngữ mới</h3><p>Nguồn tin được làm mới định kỳ.</p></div></div>
+              <small id="newsUpdatedAt">Đang cập nhật…</small>
+            </div>
+            <div id="languageNewsList" class="language-news-list">
+              <div class="insights-loading">Đang tải tin tức…</div>
+            </div>
+          </section>
+
+          <section class="surface-card language-ranking-panel">
+            <div class="insights-panel-heading">
+              <div><span class="panel-icon"><i data-lucide="bar-chart-3"></i></span><div><h3>Bảng xu hướng ngoại ngữ</h3><p id="rankingMetric">Mức độ quan tâm trong 30 ngày.</p></div></div>
+              <small id="rankingUpdatedAt">Đang cập nhật…</small>
+            </div>
+            <div id="languageRankingList" class="language-ranking-list">
+              <div class="insights-loading">Đang tải bảng xếp hạng…</div>
+            </div>
+            <p class="ranking-note">Bảng này phản ánh mức độ quan tâm trực tuyến theo lượt xem Wikipedia, không phải kết luận ngôn ngữ nào “tốt nhất”.</p>
+          </section>
+        </div>
+      </section>
+
       <section id="profileView" class="view">
         <div class="view-header"><div><span class="section-kicker">TÀI KHOẢN CỦA BẠN</span><h2>Thông tin người dùng</h2><p>Xem thông tin cơ bản và tiến độ học tập của tài khoản.</p></div></div>
         <div class="profile-layout">
@@ -301,6 +337,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=304"></script>
+  <script src="./app.js?v=305"></script>
 </body>
 </html>
