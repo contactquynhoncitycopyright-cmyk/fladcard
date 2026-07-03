@@ -405,10 +405,15 @@ const LOCAL_ICONS = {
 };
 
 function refreshIcons() {
-  document.querySelectorAll("i[data-lucide]").forEach(node => {
+  document.querySelectorAll("[data-lucide]").forEach(node => {
     const name = node.getAttribute("data-lucide");
     const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+    const svg = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    );
+
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("width", "24");
     svg.setAttribute("height", "24");
@@ -418,16 +423,9 @@ function refreshIcons() {
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("aria-hidden", "true");
-    svg.innerHTML = body; 
-    svg.style.display = "block";
-    svg.style.margin = "0";
-    svg.style.flexShrink = "0";
-node.style.display = "inline-flex";
-node.style.alignItems = "center";
-node.style.justifyContent = "center";
-node.style.lineHeight = "1";
-    node.innerHTML = "";
-    node.appendChild(svg);
+
+    svg.innerHTML = body;
+    node.replaceWith(svg);
   });
 }
 
