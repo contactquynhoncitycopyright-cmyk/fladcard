@@ -344,7 +344,6 @@ $("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/te
 $("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");
 $("#csvImportForm").onsubmit = async e => {
   e.preventDefault();
-  const form = e.currentTarget;
   const file = $("#csvFile").files[0];
   if (!file) return;
   const fd = new FormData();
@@ -360,10 +359,68 @@ $("#csvImportForm").onsubmit = async e => {
     if (data.errors?.length) {
       $("#csvImportErrors").innerHTML = `<b>Một số dòng lỗi:</b>${data.errors.map(x => `<div>Dòng ${x.line}: ${escapeHtml(x.error)}</div>`).join("")}`;
     }
-    form.reset();
+    e.currentTarget.reset();
     await loadAdmin();
     await loadWords();
   } catch (err) {
     $("#csvImportMessage").textContent = err.message;
   }
 };
+
+
+// Giao diện mới: icon, theme, menu mobile và tìm kiếm nhanh.
+function refreshIcons() {
+  if (window.lucide) window.lucide.createIcons();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  refreshIcons();
+
+  const sidebar = document.getElementById("sidebar");
+  const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+  if (mobileMenuBtn && sidebar) {
+    mobileMenuBtn.addEventListener("click", () => sidebar.classList.toggle("open"));
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.addEventListener("click", () => sidebar.classList.remove("open"));
+    });
+  }
+
+  const themeToggle = document.getElementById("themeToggle");
+  const savedTheme = localStorage.getItem("lingoplay-theme");
+  if (savedTheme === "dark") document.body.classList.add("dark");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("lingoplay-theme", document.body.classList.contains("dark") ? "dark" : "light");
+      themeToggle.innerHTML = document.body.classList.contains("dark")
+        ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
+      refreshIcons();
+    });
+  }
+
+  document.querySelectorAll("[data-quick-language]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-quick-language]").forEach(x => x.classList.remove("active"));
+      btn.classList.add("active");
+      selectLanguage(btn.dataset.quickLanguage);
+      showView("learn");
+    });
+  });
+
+  const globalSearchInput = document.getElementById("globalSearchInput");
+  const globalSearchBtn = document.getElementById("globalSearchBtn");
+  const runGlobalSearch = () => {
+    const value = globalSearchInput?.value.trim();
+    if (!value) return;
+    showView("learn");
+    const target = document.getElementById("searchInput");
+    if (target) {
+      target.value = value;
+      loadWords();
+    }
+  };
+  if (globalSearchBtn) globalSearchBtn.addEventListener("click", runGlobalSearch);
+  if (globalSearchInput) globalSearchInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") runGlobalSearch();
+  });
+});
