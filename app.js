@@ -1395,19 +1395,21 @@ $('#topicSearch')?.addEventListener('input',()=>{clearTimeout(topicSearchTimer);
   }
 
   function createSnow(){
-    const count = window.matchMedia('(max-width: 700px)').matches ? 30 : 60;
+    const isMobile = window.matchMedia('(max-width: 700px)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const count = reduceMotion ? (isMobile ? 12 : 18) : (isMobile ? 38 : 78);
     const fragment = document.createDocumentFragment();
     for(let i=0;i<count;i++){
       const flake = document.createElement('span');
-      flake.className = 'fx-snowflake';
-      const size = 2 + Math.random() * 5;
+      flake.className = `fx-snowflake fx-snowflake-${1 + (i % 3)}`;
+      const size = 5 + Math.random() * 9;
       flake.style.left = `${Math.random()*100}%`;
       flake.style.width = `${size}px`;
       flake.style.height = `${size}px`;
-      flake.style.opacity = `${0.35 + Math.random()*0.6}`;
-      flake.style.animationDuration = `${7 + Math.random()*10}s`;
-      flake.style.animationDelay = `${-Math.random()*16}s`;
-      flake.style.setProperty('--drift', `${-70 + Math.random()*140}px`);
+      flake.style.opacity = `${0.55 + Math.random()*0.4}`;
+      flake.style.animationDuration = `${reduceMotion ? 18 : 8 + Math.random()*11}s`;
+      flake.style.animationDelay = `${-Math.random()*18}s`;
+      flake.style.setProperty('--drift', `${-90 + Math.random()*180}px`);
       fragment.appendChild(flake);
     }
     layer.appendChild(fragment);
@@ -1445,10 +1447,8 @@ $('#topicSearch')?.addEventListener('input',()=>{clearTimeout(topicSearchTimer);
     currentMode = validModes.has(mode) ? mode : 'none';
     localStorage.setItem(STORAGE_KEY, currentMode);
     clearEffects();
-    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-      if(currentMode === 'snow') createSnow();
-      if(currentMode === 'dragon') createDragons();
-    }
+    if(currentMode === 'snow') createSnow();
+    if(currentMode === 'dragon') createDragons();
     control.querySelectorAll('[data-fx-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.fxMode === currentMode));
   }
 
