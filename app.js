@@ -3,6 +3,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 let currentUser = null;
 let currentWords = [];
 let currentQuestion = null;
+let currentReview = null;
 let currentLookup = null;
 let suggestionTimer = null;
 let insightsLoadedAt = 0;
@@ -51,6 +52,7 @@ function showView(name) {
   if (name === "learn") loadWords();
   if (name === "lookup") setTimeout(() => $("#lookupInput")?.focus(), 100);
   if (name === "phrases") loadPhrases();
+  if (name === "learned") loadLearnedWords();
   if (name === "admin") loadAdmin();
   if (name === "profile") renderProfile();
   if (name === "insights") loadLanguageInsights();
@@ -140,9 +142,10 @@ async function loadWords() {
         </div>
         <p><b>${escapeHtml(w.meaning || "Chưa có nghĩa")}</b></p>
         <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
-        <button class="speak" type="button" data-speak=${JSON.stringify(w.word || "")} aria-label="Nghe phát âm">
-          <span aria-hidden="true">🔊</span>
-        </button>
+        <div class="word-actions">
+          <button class="speak" type="button" data-speak=${JSON.stringify(w.word || "")} aria-label="Nghe phát âm"><span aria-hidden="true">🔊</span></button>
+          <button class="learned-btn" type="button" data-learn-word="${w.id}"><i data-lucide="check-circle-2"></i> Đã học</button>
+        </div>
       </article>
     `).join("") : `
       <div class="card empty vocabulary-empty-state">
@@ -1177,3 +1180,72 @@ if ($("#resetForm")) $("#resetForm").onsubmit = async e => {
   try { const data=await api('/api/auth/reset-password',{method:'POST',body:JSON.stringify(body)}); $("#authMessage").textContent=data.message; form.reset(); setTimeout(()=>switchAuth('login'),900); }
   catch(err) { $("#authMessage").textContent=err.message; }
 };
+
+
+async function markWordLearned(wordId, button) {
+  if (!currentUser) { openAuth('login'); return; }
+  try {
+    await api(`/api/learned/${wordId}`, {method:'POST', body:'{}'});
+    if (button) { button.classList.add('saved'); button.innerHTML='<i data-lucide="check-circle-2"></i> Đã lưu'; }
+    refreshIcons();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadLearnedWords() {
+  if (!currentUser) return;
+  const list=$('#learnedList'); if (!list) return;
+  list.innerHTML='<div class="empty">Đang tải danh sách...</div>';
+  const lang=$('#learnedLanguage')?.value || '';
+  const q=$('#learnedSearch')?.value.trim() || '';
+  try {
+    const data=await api(`/api/learned?language=${encodeURIComponent(lang)}&search=${encodeURIComponent(q)}`);
+    $('#learnedTotal').textContent=data.total; $('#learnedDue').textContent=data.due; $('#learnedMastered').textContent=data.mastered;
+    list.innerHTML=data.items.length ? data.items.map(x=>`
+      <article class="learned-item ${x.due?'due':''}">
+        <div class="learned-main"><div class="learned-word-line"><strong>${escapeHtml(x.word)}</strong><span>${escapeHtml(x.pronunciation||'')}</span></div><p>${escapeHtml(x.meaning)}</p><small>${escapeHtml(x.language==='chinese'?'Tiếng Trung':'Tiếng Anh')} • ${escapeHtml(x.level)} • ${escapeHtml(x.topic||'general')}</small></div>
+        <div class="memory-meter" title="Mức ghi nhớ">${[0,1,2,3,4].map(i=>`<span class="${i<x.strength?'on':''}"></span>`).join('')}</div>
+        <div class="learned-actions"><button type="button" class="icon-btn" data-speak=${JSON.stringify(x.word)}><i data-lucide="volume-2"></i></button><button type="button" class="danger-text" data-remove-learned="${x.word_id}">Xóa</button></div>
+      </article>`).join('') : '<div class="empty">Chưa có từ đã học. Vào Kho từ vựng và bấm “Đã học”.</div>';
+    refreshIcons();
+  } catch(e){ list.innerHTML=`<div class="empty">${escapeHtml(e.message)}</div>`; }
+}
+
+async function removeLearnedWord(wordId){
+  if(!confirm('Xóa từ này khỏi danh sách đã học?')) return;
+  try{ await api(`/api/learned/${wordId}`,{method:'DELETE'}); loadLearnedWords(); }catch(e){alert(e.message)}
+}
+
+async function startReview(){
+  if(!currentUser){openAuth('login');return;}
+  $('#reviewBox')?.classList.remove('hidden'); $('#reviewMessage').textContent='Đang tạo câu hỏi...'; $('#nextReviewBtn').classList.add('hidden');
+  try{
+    const data=await api('/api/review/start',{method:'POST',body:JSON.stringify({language:$('#learnedLanguage')?.value||''})});
+    currentReview={token:data.token,word:data.word}; $('#reviewWord').textContent=data.word; $('#reviewPron').textContent=data.pronunciation||'';
+    $('#reviewOptions').innerHTML=data.options.map(o=>`<button data-review-answer="${o.id}">${escapeHtml(o.meaning)}</button>`).join(''); $('#reviewMessage').textContent='';
+  }catch(e){$('#reviewMessage').textContent=e.message; $('#reviewOptions').innerHTML='';}
+}
+
+async function answerReview(id){
+  if(!currentReview)return;
+  $$('#reviewOptions button').forEach(b=>b.disabled=true);
+  try{
+    const data=await api('/api/review/answer',{method:'POST',body:JSON.stringify({token:currentReview.token,answer_id:id})});
+    $('#reviewMessage').textContent=data.correct?`Chính xác! +${data.earned_xp} XP`:`Chưa đúng. Đáp án: ${data.correct_meaning}`;
+    if(data.correct) playUiSound('success'); else playUiSound('wrong');
+    if(currentUser){currentUser.xp=data.xp; refreshUser();}
+    $('#nextReviewBtn').classList.remove('hidden'); loadLearnedWords();
+  }catch(e){$('#reviewMessage').textContent=e.message;}
+}
+
+document.addEventListener('click',event=>{
+  const learn=event.target.closest('[data-learn-word]'); if(learn){markWordLearned(Number(learn.dataset.learnWord),learn);return;}
+  const remove=event.target.closest('[data-remove-learned]'); if(remove){removeLearnedWord(Number(remove.dataset.removeLearned));return;}
+  const ans=event.target.closest('[data-review-answer]'); if(ans){answerReview(Number(ans.dataset.reviewAnswer));return;}
+});
+$('#startReviewBtn')?.addEventListener('click',startReview);
+$('#nextReviewBtn')?.addEventListener('click',startReview);
+$('#reviewSpeakBtn')?.addEventListener('click',()=>speak(currentReview?.word||''));
+$('#reloadLearnedBtn')?.addEventListener('click',loadLearnedWords);
+$('#learnedLanguage')?.addEventListener('change',loadLearnedWords);
+let learnedSearchTimer;
+$('#learnedSearch')?.addEventListener('input',()=>{clearTimeout(learnedSearchTimer);learnedSearchTimer=setTimeout(loadLearnedWords,250);});

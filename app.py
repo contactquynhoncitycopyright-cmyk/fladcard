@@ -76,6 +76,27 @@ class PasswordReset(db.Model):
     requested_ip=db.Column(db.String(100), default='')
     created_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
+class LearnedWord(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    word_id=db.Column(db.Integer, nullable=False, index=True)
+    strength=db.Column(db.Integer, nullable=False, default=0)
+    correct_count=db.Column(db.Integer, nullable=False, default=0)
+    wrong_count=db.Column(db.Integer, nullable=False, default=0)
+    learned_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    last_reviewed_at=db.Column(db.DateTime, nullable=True)
+    next_review_at=db.Column(db.DateTime, nullable=True, index=True)
+    __table_args__=(db.UniqueConstraint('user_id','word_id',name='uq_learned_user_word'),)
+
+class ReviewChallenge(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    token=db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    learned_id=db.Column(db.Integer, nullable=False, index=True)
+    answer_word_id=db.Column(db.Integer, nullable=False)
+    expires_at=db.Column(db.DateTime, nullable=False)
+    used=db.Column(db.Boolean, nullable=False, default=False)
+
 class GameChallenge(db.Model):
     id=db.Column(db.Integer, primary_key=True)
     token=db.Column(db.String(64), unique=True, nullable=False, index=True)
@@ -437,6 +458,96 @@ def game_answer():
     db.session.commit()
     return jsonify(correct=correct,earned_xp=earned,xp=u.xp if u else 0,correct_meaning=correct_word.meaning if correct_word else '')
 
+
+
+def learned_json(row, word):
+    now=datetime.now(timezone.utc)
+    due=True
+    if row.next_review_at:
+        nxt=row.next_review_at.replace(tzinfo=timezone.utc) if row.next_review_at.tzinfo is None else row.next_review_at
+        due=nxt<=now
+    return {'id':row.id,'word_id':word.id,'language':word.language,'level':word.level,'word':word.word,
+            'pronunciation':word.pronunciation,'meaning':word.meaning,'example':word.example,'topic':word.topic,
+            'strength':row.strength,'correct_count':row.correct_count,'wrong_count':row.wrong_count,
+            'due':due,'learned_at':row.learned_at.isoformat() if row.learned_at else None,
+            'next_review_at':row.next_review_at.isoformat() if row.next_review_at else None}
+
+@app.get('/api/learned')
+@login_required
+def learned_list():
+    u=current_user(); lang=request.args.get('language','').strip(); level=request.args.get('level','').strip(); q=request.args.get('search','').strip()[:100]
+    query=db.session.query(LearnedWord,Word).join(Word,Word.id==LearnedWord.word_id).filter(LearnedWord.user_id==u.id)
+    if lang: query=query.filter(Word.language==lang)
+    if level: query=query.filter(Word.level==level)
+    if q: query=query.filter(or_(Word.word.ilike(f'%{q}%'),Word.meaning.ilike(f'%{q}%'),Word.topic.ilike(f'%{q}%')))
+    rows=query.order_by(LearnedWord.next_review_at.asc().nullsfirst(),LearnedWord.learned_at.desc()).limit(1000).all()
+    items=[learned_json(l,w) for l,w in rows]
+    return jsonify(items=items,total=len(items),due=sum(1 for x in items if x['due']),mastered=sum(1 for x in items if x['strength']>=4))
+
+@app.post('/api/learned/<int:word_id>')
+@login_required
+def learned_add(word_id):
+    u=current_user(); w=db.session.get(Word,word_id)
+    if not w:return jsonify(error='Không tìm thấy từ vựng'),404
+    row=LearnedWord.query.filter_by(user_id=u.id,word_id=word_id).first()
+    if not row:
+        row=LearnedWord(user_id=u.id,word_id=word_id,next_review_at=datetime.now(timezone.utc))
+        db.session.add(row); audit('learned_word_add',f'word={word_id}')
+    db.session.commit(); return jsonify(ok=True,item=learned_json(row,w))
+
+@app.delete('/api/learned/<int:word_id>')
+@login_required
+def learned_remove(word_id):
+    u=current_user(); row=LearnedWord.query.filter_by(user_id=u.id,word_id=word_id).first()
+    if row: db.session.delete(row); audit('learned_word_remove',f'word={word_id}'); db.session.commit()
+    return jsonify(ok=True)
+
+@app.post('/api/review/start')
+@login_required
+@limited('review-start',40,60)
+def review_start():
+    u=current_user(); d=request.get_json(silent=True) or {}; lang=str(d.get('language','')).strip(); level=str(d.get('level','')).strip()
+    now=datetime.now(timezone.utc)
+    query=db.session.query(LearnedWord,Word).join(Word,Word.id==LearnedWord.word_id).filter(LearnedWord.user_id==u.id)
+    if lang: query=query.filter(Word.language==lang)
+    if level: query=query.filter(Word.level==level)
+    due_filter=or_(LearnedWord.next_review_at==None,LearnedWord.next_review_at<=now)
+    pair=query.filter(due_filter).order_by(func.random()).first() or query.order_by(func.random()).first()
+    if not pair:return jsonify(error='Bạn chưa có từ đã học. Hãy vào Kho từ vựng và bấm “Đã học”.'),400
+    learned,answer=pair
+    distractors=Word.query.filter(Word.language==answer.language,Word.level==answer.level,Word.id!=answer.id).order_by(func.random()).limit(3).all()
+    options=[answer]+distractors
+    import random; random.shuffle(options)
+    token=secrets.token_urlsafe(24)
+    db.session.add(ReviewChallenge(token=token,user_id=u.id,learned_id=learned.id,answer_word_id=answer.id,expires_at=now+timedelta(minutes=5)))
+    db.session.commit()
+    return jsonify(token=token,word=answer.word,pronunciation=answer.pronunciation,options=[{'id':x.id,'meaning':x.meaning} for x in options],strength=learned.strength)
+
+@app.post('/api/review/answer')
+@login_required
+@limited('review-answer',80,60)
+def review_answer():
+    u=current_user(); d=request.get_json(silent=True) or {}; token=str(d.get('token',''))[:64]
+    try: answer_id=int(d.get('answer_id',0))
+    except Exception: answer_id=0
+    row=ReviewChallenge.query.filter_by(token=token,user_id=u.id).first(); now=datetime.now(timezone.utc)
+    if not row or row.used:return jsonify(error='Câu ôn tập không còn hợp lệ.'),400
+    exp=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
+    if exp<now: row.used=True; db.session.commit(); return jsonify(error='Câu ôn tập đã hết hạn.'),400
+    learned=db.session.get(LearnedWord,row.learned_id); correct=answer_id==row.answer_word_id; row.used=True
+    if not learned:return jsonify(error='Từ này không còn trong danh sách đã học.'),404
+    learned.last_reviewed_at=now
+    if correct:
+        learned.correct_count+=1; learned.strength=min(5,learned.strength+1)
+        days=[1,2,4,7,14,30][learned.strength]
+        learned.next_review_at=now+timedelta(days=days); u.xp+=5
+    else:
+        learned.wrong_count+=1; learned.strength=max(0,learned.strength-1); learned.next_review_at=now+timedelta(minutes=10)
+    correct_word=db.session.get(Word,row.answer_word_id); audit('review_answer',f'word={row.answer_word_id}; correct={correct}')
+    db.session.commit()
+    return jsonify(correct=correct,earned_xp=5 if correct else 0,xp=u.xp,strength=learned.strength,
+                   correct_meaning=correct_word.meaning if correct_word else '',next_review_at=learned.next_review_at.isoformat())
+
 @app.post('/api/progress/xp')
 def deprecated_xp():
     return jsonify(error='API này đã bị khóa để chống gian lận XP.'),410
@@ -790,6 +901,7 @@ def seed():
     db.session.flush()
     for user in User.query.all(): security_state(user.id)
     GameChallenge.query.filter(GameChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
+    ReviewChallenge.query.filter(ReviewChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     db.session.commit()
 
 with app.app_context(): seed()

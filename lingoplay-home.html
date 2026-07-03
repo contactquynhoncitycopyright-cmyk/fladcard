@@ -41,6 +41,7 @@
         <button class="nav-btn active" data-view="home"><i data-lucide="house"></i><span>Trang chủ</span></button>
         <button class="nav-btn" data-view="learn"><i data-lucide="book-open"></i><span>Học từ vựng</span></button>
         <button class="nav-btn" data-view="phrases"><i data-lucide="messages-square"></i><span>Cụm nói thực chiến</span></button>
+        <button class="nav-btn auth-only hidden" data-view="learned"><i data-lucide="brain"></i><span>Từ đã học</span></button>
         <button class="nav-btn" data-view="game"><i data-lucide="gamepad-2"></i><span>Trò chơi</span></button>
         <button class="nav-btn" data-view="lookup"><i data-lucide="languages"></i><span>Tra từ & Dịch</span></button>
         <button class="nav-btn" data-view="insights"><i data-lucide="newspaper"></i><span>Tin tức & Xếp hạng</span></button>
@@ -191,6 +192,24 @@
             <button id="searchBtn" class="btn btn-primary"><i data-lucide="search"></i> Tìm kiếm</button>
           </div>
           <div id="wordGrid" class="word-grid"></div>
+        </section>
+      </section>
+
+
+      <section id="learnedView" class="view">
+        <div class="view-header"><div><span class="section-kicker">ÔN TẬP THÔNG MINH</span><h2>Từ đã học của bạn</h2><p>Lưu lại từ đã học và ôn theo chu kỳ như Duolingo.</p></div></div>
+        <div class="learned-stats">
+          <article class="surface-card"><span>Tổng từ</span><strong id="learnedTotal">0</strong></article>
+          <article class="surface-card"><span>Cần ôn hôm nay</span><strong id="learnedDue">0</strong></article>
+          <article class="surface-card"><span>Đã ghi nhớ tốt</span><strong id="learnedMastered">0</strong></article>
+        </div>
+        <section class="review-shell surface-card">
+          <div class="review-head"><div><span class="section-kicker">LUYỆN NHỚ</span><h3>Ôn nhanh từ đã học</h3></div><button id="startReviewBtn" class="btn btn-primary">Bắt đầu ôn</button></div>
+          <div id="reviewBox" class="review-box hidden"><button id="reviewSpeakBtn" class="icon-btn" type="button" aria-label="Nghe phát âm"><i data-lucide="volume-2"></i></button><div id="reviewWord" class="review-word"></div><div id="reviewPron" class="pron"></div><div id="reviewOptions" class="game-options"></div><div id="reviewMessage" class="game-message"></div><button id="nextReviewBtn" class="btn btn-primary hidden">Câu tiếp theo</button></div>
+        </section>
+        <section class="surface-card learned-library">
+          <div class="learned-toolbar"><input id="learnedSearch" placeholder="Tìm trong từ đã học..."><select id="learnedLanguage"><option value="">Tất cả ngôn ngữ</option><option value="english">Tiếng Anh</option><option value="chinese">Tiếng Trung</option></select><button id="reloadLearnedBtn" class="btn btn-light">Làm mới</button></div>
+          <div id="learnedList" class="learned-list"></div>
         </section>
       </section>
 
