@@ -479,3 +479,64 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") runGlobalSearch();
   });
 });
+
+
+// ===== FINAL INTERACTION FIX =====
+document.addEventListener("click", (event) => {
+  const nav = event.target.closest("[data-view]");
+  if (nav) {
+    event.preventDefault();
+    showView(nav.dataset.view);
+    document.getElementById("sidebar")?.classList.remove("open");
+    return;
+  }
+
+  const go = event.target.closest("[data-go]");
+  if (go) {
+    event.preventDefault();
+    showView(go.dataset.go);
+    return;
+  }
+
+  const languageButton = event.target.closest(".language-choice[data-language], .course-card[data-language]");
+  if (languageButton) {
+    event.preventDefault();
+    const language = languageButton.dataset.language;
+    if (document.getElementById("languageSelect")) {
+      selectLanguage(language);
+    }
+    showView("learn");
+    return;
+  }
+
+  const quickLookup = event.target.closest(".quick-lookup, .quick-lookup-box");
+  if (quickLookup) {
+    event.preventDefault();
+    showView("lookup");
+    setTimeout(() => document.getElementById("lookupInput")?.focus(), 100);
+  }
+});
+
+// Các nút cấp độ ở trang chủ cũng điều hướng đúng tới kho học.
+document.querySelectorAll(".static-levels").forEach(group => {
+  group.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => {
+      const isChinese = group.classList.contains("chinese");
+      const language = isChinese ? "chinese" : "english";
+      const raw = button.textContent.trim().replace(/\s+/g, "");
+      const level = isChinese ? raw : raw;
+      if (document.getElementById("languageSelect")) {
+        document.getElementById("languageSelect").value = language;
+        fillLevels();
+        if (levels[language].includes(level)) {
+          document.getElementById("levelSelect").value = level;
+          renderLanguageUI(language);
+          loadWords();
+        }
+      }
+      group.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+      button.classList.add("active");
+      showView("learn");
+    });
+  });
+});
