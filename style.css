@@ -585,3 +585,23 @@ body.dark .language-choice{
     grid-template-columns:auto 1fr auto;
   }
 }
+
+.welcome-hero,
+body.dark .welcome-hero {
+  min-height: 300px;
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,.12),
+      rgba(255,255,255,.08)
+    ),
+    url("/lingoplay-hero-fun.png") !important;
+
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
