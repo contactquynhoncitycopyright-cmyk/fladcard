@@ -540,3 +540,43 @@ document.querySelectorAll(".static-levels").forEach(group => {
     });
   });
 });
+
+
+// ===== QUICK LOOKUP REAL INTERACTION =====
+async function runQuickLookup() {
+  const input = document.getElementById("quickLookupInput");
+  const result = document.getElementById("quickLookupResult");
+  const word = input?.value.trim();
+  if (!word || !result) return;
+
+  result.classList.add("loading");
+  result.innerHTML = "Đang tra từ...";
+
+  try {
+    const data = await api(`/api/lookup?word=${encodeURIComponent(word)}`);
+    const item = data?.word || data?.result || data;
+    const displayWord = item?.word || word;
+    const pronunciation = item?.pronunciation || item?.phonetic || "";
+    const meaning = item?.meaning || item?.vietnamese || item?.translation || "Chưa có nghĩa tiếng Việt.";
+
+    result.innerHTML = `
+      <b>${escapeHtml(displayWord)}</b>
+      ${pronunciation ? `<small>${escapeHtml(pronunciation)}</small>` : ""}
+      <p><strong>Nghĩa tiếng Việt:</strong> ${escapeHtml(meaning)}</p>
+    `;
+  } catch (error) {
+    result.innerHTML = `<p>Không tra được từ này. Hãy thử lại.</p>`;
+  } finally {
+    result.classList.remove("loading");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const quickInput = document.getElementById("quickLookupInput");
+  const quickBtn = document.getElementById("quickLookupBtn");
+
+  quickBtn?.addEventListener("click", runQuickLookup);
+  quickInput?.addEventListener("keydown", e => {
+    if (e.key === "Enter") runQuickLookup();
+  });
+});

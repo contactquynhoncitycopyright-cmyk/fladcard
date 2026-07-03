@@ -423,3 +423,147 @@ button:active{transform:scale(.98)}
   .level-summary{grid-template-columns:46px minmax(0,1fr)}
   .level-summary button{grid-column:1/-1;width:100%!important;max-width:none!important}
 }
+
+
+/* ===== FIX HEADER + ICON + QUICK LOOKUP + BANNER ===== */
+.topbar{
+  display:grid !important;
+  grid-template-columns:220px minmax(320px,540px) 1fr;
+  align-items:center;
+  gap:18px;
+  height:74px;
+  padding:0 22px;
+}
+.brand{
+  min-width:0;
+}
+.global-search{
+  width:100%;
+  max-width:none;
+  justify-self:center;
+}
+.top-actions{
+  justify-self:end;
+  min-width:0;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+.language-switch{
+  white-space:nowrap;
+}
+.user-pill{
+  max-width:150px;
+}
+#authBtn,#logoutBtn{
+  white-space:nowrap;
+}
+
+/* Icon hiển thị nhất quán */
+svg{
+  width:20px !important;
+  height:20px !important;
+  max-width:20px !important;
+  max-height:20px !important;
+  stroke-width:2 !important;
+}
+.brand-mark svg{width:24px !important;height:24px !important}
+.card-emoji{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:42px;
+  height:42px;
+  font-size:30px;
+  line-height:1;
+}
+
+/* Banner mới */
+.welcome-hero,
+body.dark .welcome-hero{
+  background-image:
+    linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.16)),
+    url("/assets/lingoplay-hero-fun.png") !important;
+  background-size:cover !important;
+  background-position:center !important;
+  background-repeat:no-repeat !important;
+}
+.hero-overlay,
+body.dark .hero-overlay{
+  background:rgba(255,255,255,.66) !important;
+  color:#151827 !important;
+  backdrop-filter:blur(4px) !important;
+  border:1px solid rgba(255,255,255,.55) !important;
+  border-radius:20px;
+  padding:18px 20px 20px !important;
+}
+.hero-kicker,
+.hero-overlay h1,
+.hero-overlay p{
+  color:#151827 !important;
+}
+.language-choice,
+body.dark .language-choice{
+  background:rgba(255,255,255,.94) !important;
+  color:#151827 !important;
+}
+.language-choice small{
+  color:#6b7280 !important;
+}
+
+/* Tra nhanh có thể tương tác */
+.quick-lookup-box{
+  display:grid !important;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:8px;
+}
+.quick-lookup-box input{
+  min-width:0;
+  pointer-events:auto !important;
+  cursor:text !important;
+}
+.quick-lookup-box button{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:10px;
+  background:var(--primary);
+  color:white;
+  display:grid;
+  place-items:center;
+}
+.quick-lookup-box button:hover{
+  filter:brightness(1.08);
+}
+.quick-lookup .mini-result{
+  min-height:62px;
+}
+.quick-lookup .mini-result.loading{
+  opacity:.65;
+}
+
+/* responsive */
+@media(max-width:1180px){
+  .topbar{
+    grid-template-columns:190px minmax(260px,1fr) auto;
+  }
+  .top-actions .language-switch{
+    padding:9px 10px;
+  }
+}
+@media(max-width:900px){
+  .topbar{
+    grid-template-columns:auto 1fr auto;
+  }
+  .global-search{
+    display:none !important;
+  }
+}
+@media(max-width:620px){
+  .top-actions .language-switch{
+    display:none !important;
+  }
+  .topbar{
+    grid-template-columns:auto 1fr auto;
+  }
+}
