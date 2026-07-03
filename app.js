@@ -355,8 +355,11 @@ function openAuth(mode="login") {
 function switchAuth(mode) {
   $("#loginForm").classList.toggle("hidden", mode !== "login");
   $("#registerForm").classList.toggle("hidden", mode !== "register");
+  $("#forgotForm")?.classList.toggle("hidden", mode !== "forgot");
+  $("#resetForm")?.classList.toggle("hidden", mode !== "reset");
   $("#loginTab").classList.toggle("active", mode === "login");
   $("#registerTab").classList.toggle("active", mode === "register");
+  $(".auth-tabs")?.classList.toggle("hidden", mode === "forgot" || mode === "reset");
   $("#authMessage").textContent = "";
 }
 
@@ -1015,3 +1018,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") runQuickLookup();
   });
 });
+if ($("#forgotPasswordBtn")) $("#forgotPasswordBtn").onclick = () => switchAuth("forgot");
+if ($("#backToLoginBtn")) $("#backToLoginBtn").onclick = () => switchAuth("login");
+if ($("#resetBackBtn")) $("#resetBackBtn").onclick = () => switchAuth("login");
+if ($("#forgotForm")) $("#forgotForm").onsubmit = async e => {
+  e.preventDefault(); const form=e.currentTarget; const body=Object.fromEntries(new FormData(form).entries());
+  try { const data=await api('/api/auth/forgot-password',{method:'POST',body:JSON.stringify(body)}); $("#authMessage").textContent=data.message;
+    $("#resetForm input[name=email]").value=body.email; switchAuth('reset'); $("#authMessage").textContent=data.message;
+  } catch(err) { $("#authMessage").textContent=err.message; }
+};
+if ($("#resetForm")) $("#resetForm").onsubmit = async e => {
+  e.preventDefault(); const form=e.currentTarget; const body=Object.fromEntries(new FormData(form).entries());
+  try { const data=await api('/api/auth/reset-password',{method:'POST',body:JSON.stringify(body)}); $("#authMessage").textContent=data.message; form.reset(); setTimeout(()=>switchAuth('login'),900); }
+  catch(err) { $("#authMessage").textContent=err.message; }
+};

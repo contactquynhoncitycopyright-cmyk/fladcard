@@ -1095,3 +1095,5 @@ body.dark .language-news-card{background:var(--surface-2)}
 .form-message.error{color:#dc2626}
 button:disabled{opacity:.58;cursor:not-allowed}
 @media(max-width:700px){.security-form{grid-template-columns:1fr}.security-form>small,.security-actions,.security-form .form-message{grid-column:auto}}
+
+.link-button{border:0;background:transparent;color:var(--primary,#6558d3);font-weight:700;cursor:pointer;padding:.75rem;text-align:center;width:100%}.link-button:hover{text-decoration:underline}

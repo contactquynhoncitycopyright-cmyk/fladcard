@@ -1,6 +1,7 @@
-import os, time, json, urllib.parse, urllib.request, csv, io, secrets, re, xml.etree.ElementTree as ET
+import os, time, json, urllib.parse, urllib.request, csv, io, secrets, re, smtplib, ssl, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from email.message import EmailMessage
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session
@@ -63,6 +64,17 @@ class SecurityState(db.Model):
     locked_until=db.Column(db.DateTime, nullable=True)
     session_version=db.Column(db.Integer, nullable=False, default=1)
     last_password_change=db.Column(db.DateTime, nullable=True)
+
+
+class PasswordReset(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    code_hash=db.Column(db.String(255), nullable=False)
+    expires_at=db.Column(db.DateTime, nullable=False)
+    used=db.Column(db.Boolean, nullable=False, default=False)
+    attempts=db.Column(db.Integer, nullable=False, default=0)
+    requested_ip=db.Column(db.String(100), default='')
+    created_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 class GameChallenge(db.Model):
     id=db.Column(db.Integer, primary_key=True)
@@ -154,6 +166,34 @@ def admin_required(fn):
 def audit(action, detail=''):
     u=current_user()
     db.session.add(AuditLog(user_id=u.id if u else None, action=action[:100], detail=str(detail)[:2000]))
+
+
+def notify_admin(title, message):
+    topic=os.getenv('NTFY_TOPIC','').strip()
+    if not topic: return False
+    server=os.getenv('NTFY_SERVER','https://ntfy.sh').rstrip('/')
+    try:
+        req=urllib.request.Request(f"{server}/{urllib.parse.quote(topic, safe='')}", data=message.encode('utf-8'), method='POST', headers={'Title':title,'Priority':'high','Tags':'key,warning'})
+        with urllib.request.urlopen(req, timeout=8): pass
+        return True
+    except Exception as exc:
+        app.logger.warning('Không gửi được ntfy: %s', exc)
+        return False
+
+def send_reset_email(to_email, code):
+    host=os.getenv('SMTP_HOST','').strip(); user=os.getenv('SMTP_USER','').strip(); password=os.getenv('SMTP_PASSWORD','')
+    port=int(os.getenv('SMTP_PORT','587')); sender=os.getenv('SMTP_FROM',user).strip()
+    if not host or not user or not password or not sender: return False
+    msg=EmailMessage(); msg['Subject']='Mã đặt lại mật khẩu LingoPlay'; msg['From']=sender; msg['To']=to_email
+    msg.set_content(f'Mã đặt lại mật khẩu của bạn là: {code}\nMã có hiệu lực trong 15 phút. Không chia sẻ mã này với người khác.')
+    try:
+        context=ssl.create_default_context()
+        with smtplib.SMTP(host,port,timeout=12) as smtp:
+            smtp.starttls(context=context); smtp.login(user,password); smtp.send_message(msg)
+        return True
+    except Exception as exc:
+        app.logger.warning('Không gửi được email reset: %s', exc)
+        return False
 
 def password_is_strong(value):
     return (len(value)>=10 and re.search(r'[a-z]',value) and re.search(r'[A-Z]',value)
@@ -277,6 +317,50 @@ def login():
     session['user_id']=u.id; session['session_version']=state.session_version; session['csrf_token']=secrets.token_urlsafe(32)
     audit('login_success',f'ip={client_ip()}'); db.session.commit()
     return jsonify(user=user_json(u),csrf_token=session['csrf_token'])
+
+
+@app.post('/api/auth/forgot-password')
+@limited('forgot-password',5,900)
+def forgot_password():
+    d=request.get_json(silent=True) or {}
+    email=str(d.get('email','')).strip().lower()[:255]
+    generic='Nếu email tồn tại, hệ thống đã gửi hướng dẫn đặt lại mật khẩu.'
+    u=User.query.filter_by(email=email).first()
+    if not u:
+        time.sleep(0.3); return jsonify(ok=True,message=generic)
+    PasswordReset.query.filter_by(user_id=u.id,used=False).update({'used':True})
+    code=f'{secrets.randbelow(1000000):06d}'
+    row=PasswordReset(user_id=u.id,code_hash=generate_password_hash(code),expires_at=datetime.now(timezone.utc)+timedelta(minutes=15),requested_ip=client_ip())
+    db.session.add(row); audit('password_reset_requested',f'user={u.id}; ip={client_ip()}'); db.session.commit()
+    delivered=send_reset_email(u.email,code)
+    masked=(u.email[:2]+'***@'+u.email.split('@',1)[1]) if '@' in u.email else 'email ẩn'
+    notify_admin('LingoPlay: yêu cầu quên mật khẩu',f'Có yêu cầu đặt lại mật khẩu cho {masked}. Email gửi mã: {"thành công" if delivered else "chưa cấu hình hoặc thất bại"}. IP: {client_ip()}')
+    return jsonify(ok=True,message=generic,delivery_configured=delivered)
+
+@app.post('/api/auth/reset-password')
+@limited('reset-password',10,900)
+def reset_password():
+    d=request.get_json(silent=True) or {}
+    email=str(d.get('email','')).strip().lower()[:255]
+    code=str(d.get('code','')).strip()[:12]
+    new=str(d.get('new_password','')); confirm=str(d.get('confirm_password',''))
+    if new!=confirm: return jsonify(error='Mật khẩu xác nhận không khớp'),400
+    if not password_is_strong(new): return jsonify(error='Mật khẩu mới cần ít nhất 10 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'),400
+    u=User.query.filter_by(email=email).first()
+    if not u: return jsonify(error='Mã đặt lại không hợp lệ hoặc đã hết hạn.'),400
+    row=PasswordReset.query.filter_by(user_id=u.id,used=False).order_by(PasswordReset.id.desc()).first()
+    now=datetime.now(timezone.utc)
+    if not row: return jsonify(error='Mã đặt lại không hợp lệ hoặc đã hết hạn.'),400
+    exp=row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=timezone.utc)
+    if exp<now or row.attempts>=5:
+        row.used=True; db.session.commit(); return jsonify(error='Mã đặt lại không hợp lệ hoặc đã hết hạn.'),400
+    if not check_password_hash(row.code_hash,code):
+        row.attempts+=1; db.session.commit(); return jsonify(error='Mã đặt lại không hợp lệ hoặc đã hết hạn.'),400
+    row.used=True; u.password_hash=generate_password_hash(new)
+    state=security_state(u.id); state.session_version+=1; state.last_password_change=now
+    audit('password_reset_completed',f'user={u.id}; ip={client_ip()}'); db.session.commit()
+    notify_admin('LingoPlay: đặt lại mật khẩu thành công',f'Tài khoản {u.email[:2]}*** đã đặt lại mật khẩu thành công.')
+    return jsonify(ok=True,message='Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.')
 
 @app.post('/api/auth/logout')
 def logout():

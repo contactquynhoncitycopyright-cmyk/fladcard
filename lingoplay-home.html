@@ -342,12 +342,14 @@
       <button class="modal-close" id="closeModal">×</button>
       <div class="modal-brand"><div class="brand-mark"><i data-lucide="messages-square"></i></div><div><strong>LingoPlay</strong><small>Học ngoại ngữ dễ dàng hơn</small></div></div>
       <div class="auth-tabs"><button id="loginTab" class="active">Đăng nhập</button><button id="registerTab">Đăng ký</button></div>
-      <form id="loginForm" class="auth-form"><h3>Chào mừng trở lại</h3><p>Đăng nhập để tiếp tục hành trình học tập.</p><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required /><button class="btn btn-primary btn-large">Đăng nhập</button></form>
+      <form id="loginForm" class="auth-form"><h3>Chào mừng trở lại</h3><p>Đăng nhập để tiếp tục hành trình học tập.</p><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required /><button class="btn btn-primary btn-large">Đăng nhập</button><button type="button" id="forgotPasswordBtn" class="link-button">Quên mật khẩu?</button></form>
       <form id="registerForm" class="auth-form hidden"><h3>Tạo tài khoản mới</h3><p>Bắt đầu học và lưu tiến độ của bạn.</p><label>Họ tên</label><input name="name" placeholder="Nhập họ tên" required /><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><label>Mật khẩu</label><input type="password" name="password" placeholder="Ít nhất 10 ký tự mạnh" autocomplete="new-password" minlength="10" required /><button class="btn btn-primary btn-large">Đăng ký</button></form>
+      <form id="forgotForm" class="auth-form hidden"><h3>Quên mật khẩu</h3><p>Nhập email để nhận mã xác nhận.</p><label>Email</label><input type="email" name="email" placeholder="name@example.com" required /><button class="btn btn-primary btn-large">Gửi mã</button><button type="button" id="backToLoginBtn" class="link-button">Quay lại đăng nhập</button></form>
+      <form id="resetForm" class="auth-form hidden"><h3>Đặt lại mật khẩu</h3><p>Nhập mã 6 số đã gửi về email.</p><label>Email</label><input type="email" name="email" required /><label>Mã xác nhận</label><input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required /><label>Mật khẩu mới</label><input type="password" name="new_password" minlength="10" required /><label>Nhập lại mật khẩu mới</label><input type="password" name="confirm_password" minlength="10" required /><button class="btn btn-primary btn-large">Đặt lại mật khẩu</button><button type="button" id="resetBackBtn" class="link-button">Quay lại đăng nhập</button></form>
       <p id="authMessage" class="auth-message"></p>
     </div>
   </div>
 
-  <script src="./app.js?v=401"></script>
+  <script src="./app.js?v=402"></script>
 </body>
 </html>
