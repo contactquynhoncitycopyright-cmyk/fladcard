@@ -532,16 +532,79 @@ async function answerGame(id) {
 
 async function loadAdmin() {
   if (currentUser?.role !== "admin") return;
-  const [stats, users] = await Promise.all([api("/api/admin/stats"), api("/api/admin/users")]);
+  const q = encodeURIComponent($("#adminUserSearch")?.value?.trim() || "");
+  const role = $("#adminUserRoleFilter")?.value || "all";
+  const status = $("#adminUserStatusFilter")?.value || "all";
+  const [stats, users] = await Promise.all([
+    api("/api/admin/stats"),
+    api(`/api/admin/users?q=${q}&role=${encodeURIComponent(role)}&status=${encodeURIComponent(status)}`)
+  ]);
   $("#adminUsers").textContent = stats.users;
   $("#adminWords").textContent = stats.words;
   $("#adminPhrases").textContent = stats.phrases;
-  $("#userTable").innerHTML = users.items.map(u => `
-    <div class="user-row">
-      <div><b>${escapeHtml(u.name)}</b><br><small>${escapeHtml(u.email)}</small></div>
-      <div><b>${u.role}</b><br><small>${u.xp} XP</small></div>
-    </div>
+  const table = $("#userTable");
+  if (!users.items.length) {
+    table.innerHTML = '<div class="card empty">Không tìm thấy người dùng phù hợp.</div>';
+    return;
+  }
+  table.innerHTML = users.items.map(u => `
+    <article class="admin-user-card" data-user-id="${u.id}">
+      <div class="admin-user-main">
+        <div class="admin-user-avatar">${escapeHtml((u.name || "U").slice(0,1).toUpperCase())}</div>
+        <div class="admin-user-info">
+          <b>${escapeHtml(u.name)}</b>
+          <small>${escapeHtml(u.email)}</small>
+          <span>${u.xp} XP • Tạo ${new Date(u.created_at).toLocaleDateString("vi-VN")}</span>
+        </div>
+      </div>
+      <div class="admin-user-state">
+        <span class="status-pill ${u.is_active ? "active" : "locked"}">${u.is_active ? "Đang hoạt động" : "Đã khóa"}</span>
+        <select class="admin-role-select" ${u.id === currentUser.id ? "disabled" : ""}>
+          <option value="user" ${u.role === "user" ? "selected" : ""}>Thành viên</option>
+          <option value="admin" ${u.role === "admin" ? "selected" : ""}>Quản trị viên</option>
+        </select>
+      </div>
+      <div class="admin-user-actions">
+        <button class="btn btn-secondary admin-toggle-user" type="button" ${u.id === currentUser.id ? "disabled" : ""}>${u.is_active ? "Khóa tài khoản" : "Mở khóa"}</button>
+        <button class="btn btn-secondary admin-reset-password" type="button">Đặt lại mật khẩu</button>
+      </div>
+    </article>
   `).join("");
+
+  $$(".admin-role-select", table).forEach(select => select.onchange = async () => {
+    const card = select.closest(".admin-user-card");
+    try {
+      await api(`/api/admin/users/${card.dataset.userId}`, {method:"PATCH", body:JSON.stringify({role:select.value})});
+      showAdminUserMessage("Đã cập nhật quyền người dùng.");
+      await loadAdmin();
+    } catch (e) { showAdminUserMessage(e.message, true); await loadAdmin(); }
+  });
+  $$(".admin-toggle-user", table).forEach(button => button.onclick = async () => {
+    const card = button.closest(".admin-user-card");
+    const isLocking = button.textContent.includes("Khóa");
+    if (!confirm(isLocking ? "Khóa tài khoản này và đăng xuất các phiên hiện tại?" : "Mở khóa tài khoản này?")) return;
+    try {
+      await api(`/api/admin/users/${card.dataset.userId}`, {method:"PATCH", body:JSON.stringify({is_active:!isLocking})});
+      showAdminUserMessage(isLocking ? "Đã khóa tài khoản." : "Đã mở khóa tài khoản.");
+      await loadAdmin();
+    } catch (e) { showAdminUserMessage(e.message, true); }
+  });
+  $$(".admin-reset-password", table).forEach(button => button.onclick = async () => {
+    const card = button.closest(".admin-user-card");
+    const password = prompt("Nhập mật khẩu tạm thời mới (ít nhất 10 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt):");
+    if (password === null) return;
+    try {
+      const result = await api(`/api/admin/users/${card.dataset.userId}/reset-password`, {method:"POST", body:JSON.stringify({new_password:password})});
+      showAdminUserMessage(result.message || "Đã đặt lại mật khẩu.");
+    } catch (e) { showAdminUserMessage(e.message, true); }
+  });
+}
+
+function showAdminUserMessage(text, isError=false) {
+  const box = $("#adminUserMessage");
+  if (!box) return;
+  box.textContent = text;
+  box.classList.toggle("error", isError);
 }
 
 
@@ -809,6 +872,21 @@ async function downloadAdminFile(url, filename) {
     $("#csvImportMessage").textContent = err.message;
   }
 }
+
+if ($("#adminUserRefreshBtn")) $("#adminUserRefreshBtn").onclick = loadAdmin;
+if ($("#adminUserRoleFilter")) $("#adminUserRoleFilter").onchange = loadAdmin;
+if ($("#adminUserStatusFilter")) $("#adminUserStatusFilter").onchange = loadAdmin;
+let adminSearchTimer;
+if ($("#adminUserSearch")) $("#adminUserSearch").oninput = () => { clearTimeout(adminSearchTimer); adminSearchTimer=setTimeout(loadAdmin,350); };
+if ($("#adminCreateUserForm")) $("#adminCreateUserForm").onsubmit = async e => {
+  e.preventDefault();
+  const form=e.currentTarget;
+  const body=Object.fromEntries(new FormData(form));
+  try {
+    await api('/api/admin/users',{method:'POST',body:JSON.stringify(body)});
+    form.reset(); showAdminUserMessage('Đã tạo tài khoản mới.'); await loadAdmin();
+  } catch(err) { showAdminUserMessage(err.message,true); }
+};
 
 if ($("#downloadTemplateBtn")) $("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/template.csv", "lingoplay-vocabulary-template.csv");
 if ($("#exportWordsBtn")) $("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");

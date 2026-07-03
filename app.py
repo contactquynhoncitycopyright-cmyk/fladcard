@@ -630,7 +630,42 @@ def language_ranking():
 def stats(): return jsonify(users=User.query.count(),words=Word.query.count(),phrases=Phrase.query.count(),active_users=User.query.filter_by(is_active=True).count())
 @app.get('/api/admin/users')
 @admin_required
-def admin_users(): return jsonify(items=[user_json(x) for x in User.query.order_by(User.id.desc()).limit(500).all()])
+def admin_users():
+    q=str(request.args.get('q','')).strip()[:100]
+    role=str(request.args.get('role','all')).strip()
+    status=str(request.args.get('status','all')).strip()
+    query=User.query
+    if q:
+        like=f'%{q}%'
+        query=query.filter(or_(User.name.ilike(like),User.email.ilike(like)))
+    if role in ('user','admin'):
+        query=query.filter(User.role==role)
+    if status=='active':
+        query=query.filter(User.is_active.is_(True))
+    elif status=='locked':
+        query=query.filter(User.is_active.is_(False))
+    items=query.order_by(User.id.desc()).limit(500).all()
+    return jsonify(items=[user_json(x) for x in items],total=len(items))
+
+@app.post('/api/admin/users')
+@admin_required
+def admin_create_user():
+    d=request.get_json(silent=True) or {}
+    name=str(d.get('name','')).strip()[:100]
+    email=str(d.get('email','')).strip().lower()[:255]
+    password=str(d.get('password',''))
+    role=str(d.get('role','user'))
+    if not name or not email or '@' not in email:
+        return jsonify(error='Tên hoặc email không hợp lệ'),400
+    if User.query.filter(func.lower(User.email)==email).first():
+        return jsonify(error='Email đã tồn tại'),409
+    if not password_is_strong(password):
+        return jsonify(error='Mật khẩu cần ít nhất 10 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'),400
+    if role not in ('user','admin'): role='user'
+    u=User(name=name,email=email,password_hash=generate_password_hash(password),role=role,is_active=True,xp=0)
+    db.session.add(u); db.session.flush(); security_state(u.id)
+    audit('admin_create_user',f'user={u.id}; role={role}'); db.session.commit()
+    return jsonify(ok=True,user=user_json(u)),201
 @app.post('/api/admin/words')
 @admin_required
 def add_word():
@@ -701,12 +736,42 @@ def delete_word(wid):
 @app.patch('/api/admin/users/<int:uid>')
 @admin_required
 def update_user(uid):
+    actor=current_user(); u=db.session.get(User,uid)
+    if not u:return jsonify(error='Không tìm thấy người dùng'),404
+    d=request.get_json(silent=True) or {}
+    if 'is_active' in d:
+        desired=bool(d['is_active'])
+        if uid==actor.id and not desired:
+            return jsonify(error='Bạn không thể tự khóa tài khoản quản trị đang dùng.'),400
+        u.is_active=desired
+        if not desired:
+            state=security_state(u.id); state.session_version+=1
+    requested_role=d.get('role')
+    if requested_role in ('user','admin') and requested_role!=u.role:
+        if uid==actor.id:
+            return jsonify(error='Bạn không thể tự thay đổi quyền của chính mình.'),400
+        if u.role=='admin' and requested_role=='user' and User.query.filter_by(role='admin',is_active=True).count()<=1:
+            return jsonify(error='Hệ thống phải còn ít nhất một quản trị viên đang hoạt động.'),400
+        u.role=requested_role
+        security_state(u.id).session_version+=1
+    audit('admin_update_user',f'user={uid}; active={u.is_active}; role={u.role}')
+    db.session.commit(); return jsonify(ok=True,user=user_json(u))
+
+@app.post('/api/admin/users/<int:uid>/reset-password')
+@admin_required
+def admin_reset_user_password(uid):
     u=db.session.get(User,uid)
     if not u:return jsonify(error='Không tìm thấy người dùng'),404
     d=request.get_json(silent=True) or {}
-    if 'is_active' in d:u.is_active=bool(d['is_active'])
-    if d.get('role') in ('user','admin') and uid!=current_user().id:u.role=d['role']
-    db.session.add(AuditLog(user_id=current_user().id,action='update_user',detail=f'user={uid}')); db.session.commit(); return jsonify(user=user_json(u))
+    new_password=str(d.get('new_password',''))
+    if not password_is_strong(new_password):
+        return jsonify(error='Mật khẩu mới cần ít nhất 10 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'),400
+    u.password_hash=generate_password_hash(new_password)
+    state=security_state(u.id); state.session_version+=1; state.failed_logins=0; state.locked_until=None; state.last_password_change=datetime.now(timezone.utc)
+    PasswordReset.query.filter_by(user_id=u.id,used=False).update({'used':True})
+    audit('admin_reset_password',f'user={uid}')
+    db.session.commit()
+    return jsonify(ok=True,message='Đã đặt mật khẩu mới và đăng xuất tài khoản khỏi các thiết bị cũ.')
 
 def seed():
     os.makedirs(os.path.join(BASE_DIR,'data'),exist_ok=True); db.create_all()

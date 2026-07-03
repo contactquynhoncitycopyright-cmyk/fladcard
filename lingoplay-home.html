@@ -328,8 +328,22 @@
               <div id="csvImportMessage" class="form-message"></div><div id="csvImportErrors" class="csv-errors"></div>
             </form>
           </div>
-          <div class="user-panel surface-card">
-            <div class="panel-heading"><span class="panel-icon"><i data-lucide="users"></i></span><div><h3>Người dùng gần đây</h3><p>Danh sách tài khoản trong hệ thống.</p></div></div>
+          <div class="user-panel surface-card admin-users-panel">
+            <div class="panel-heading"><span class="panel-icon"><i data-lucide="users"></i></span><div><h3>Quản lý người dùng</h3><p>Tìm kiếm, khóa/mở khóa, cấp quyền và đặt lại mật khẩu khi email chưa gửi được mã.</p></div></div>
+            <form id="adminCreateUserForm" class="admin-user-create">
+              <input name="name" placeholder="Họ tên" required />
+              <input name="email" type="email" placeholder="Email" required />
+              <input name="password" type="password" placeholder="Mật khẩu mạnh tạm thời" minlength="10" required />
+              <select name="role"><option value="user">Thành viên</option><option value="admin">Quản trị viên</option></select>
+              <button class="btn btn-primary" type="submit">Tạo tài khoản</button>
+            </form>
+            <div id="adminUserMessage" class="form-message"></div>
+            <div class="admin-user-toolbar">
+              <input id="adminUserSearch" type="search" placeholder="Tìm theo tên hoặc email" />
+              <select id="adminUserRoleFilter"><option value="all">Mọi quyền</option><option value="user">Thành viên</option><option value="admin">Quản trị viên</option></select>
+              <select id="adminUserStatusFilter"><option value="all">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select>
+              <button id="adminUserRefreshBtn" class="btn btn-secondary" type="button">Làm mới</button>
+            </div>
             <div id="userTable" class="user-table"></div>
           </div>
         </div>
