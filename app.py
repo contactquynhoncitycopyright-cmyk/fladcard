@@ -88,6 +88,14 @@ class LearnedWord(db.Model):
     next_review_at=db.Column(db.DateTime, nullable=True, index=True)
     __table_args__=(db.UniqueConstraint('user_id','word_id',name='uq_learned_user_word'),)
 
+
+class StudyStat(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, unique=True, nullable=False, index=True)
+    total_seconds=db.Column(db.Integer, nullable=False, default=0)
+    lessons_completed=db.Column(db.Integer, nullable=False, default=0)
+    updated_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
 class ReviewChallenge(db.Model):
     id=db.Column(db.Integer, primary_key=True)
     token=db.Column(db.String(64), unique=True, nullable=False, index=True)
@@ -450,6 +458,7 @@ def game_answer():
     expires=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
     if expires<now: row.used=True; db.session.commit(); return jsonify(error='Câu hỏi đã hết hạn.'),400
     row.used=True; correct=answer_id==row.answer_word_id
+    if u: register_completed_lesson(u.id)
     earned=0; u=current_user()
     if correct and u and row.user_id==u.id:
         u.xp+=10; earned=10
@@ -459,6 +468,49 @@ def game_answer():
     return jsonify(correct=correct,earned_xp=earned,xp=u.xp if u else 0,correct_meaning=correct_word.meaning if correct_word else '')
 
 
+
+def study_stat(user_id):
+    row=StudyStat.query.filter_by(user_id=user_id).first()
+    if not row:
+        row=StudyStat(user_id=user_id)
+        db.session.add(row)
+        db.session.flush()
+    return row
+
+def study_stats_json(row):
+    total=max(0,int(row.total_seconds or 0))
+    return {
+        'total_seconds': total,
+        'total_minutes': total // 60,
+        'total_hours': round(total / 3600, 1),
+        'lessons_completed': int(row.lessons_completed or 0),
+    }
+
+@app.get('/api/study/stats')
+@login_required
+def get_study_stats():
+    u=current_user(); row=study_stat(u.id); db.session.commit()
+    return jsonify(**study_stats_json(row))
+
+@app.post('/api/study/heartbeat')
+@login_required
+@limited('study-heartbeat',30,60)
+def study_heartbeat():
+    u=current_user(); data=request.get_json(silent=True) or {}
+    try: seconds=int(data.get('seconds',0))
+    except (TypeError,ValueError): seconds=0
+    seconds=max(0,min(seconds,90))
+    row=study_stat(u.id)
+    if seconds:
+        row.total_seconds=(row.total_seconds or 0)+seconds
+        row.updated_at=datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify(ok=True,**study_stats_json(row))
+
+def register_completed_lesson(user_id):
+    row=study_stat(user_id)
+    row.lessons_completed=(row.lessons_completed or 0)+1
+    row.updated_at=datetime.now(timezone.utc)
 
 def learned_json(row, word):
     now=datetime.now(timezone.utc)
@@ -535,6 +587,7 @@ def review_answer():
     exp=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
     if exp<now: row.used=True; db.session.commit(); return jsonify(error='Câu ôn tập đã hết hạn.'),400
     learned=db.session.get(LearnedWord,row.learned_id); correct=answer_id==row.answer_word_id; row.used=True
+    register_completed_lesson(u.id)
     if not learned:return jsonify(error='Từ này không còn trong danh sách đã học.'),404
     learned.last_reviewed_at=now
     if correct:
