@@ -14,20 +14,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .progress{height:6px;background:#eceff5;border-radius:999px;overflow:hidden}.progress i{height:100%;display:block;background:linear-gradient(90deg,var(--primary),var(--primary-2));border-radius:inherit}.progress.red i{background:#ff4d4f}
 .upgrade-card{margin-top:18px;border-radius:18px;padding:18px;color:#fff;background:linear-gradient(145deg,#7653ff,#4b36df);box-shadow:var(--shadow)}.upgrade-card svg{width:30px}.upgrade-card strong{display:block;margin-top:8px}.upgrade-card p{font-size:12px;line-height:1.7}.btn-light{background:#fff!important;color:var(--primary)!important;border:1px solid rgba(109,74,255,.12)!important}
 .page-shell{margin-left:264px;padding:104px 28px 34px}.view{display:none}.view.active{display:block}.surface-card,.side-card,.level-panel,.recent-strip{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;max-width:1480px;margin:auto}.main-column{min-width:0}.welcome-hero,
-body.dark .welcome-hero {
-  background-image:
-    linear-gradient(
-      110deg,
-      rgba(92, 67, 255, 0.45),
-      rgba(72, 118, 255, 0.35)
-    ),
-    url("/lingoplay-hero.png") !important;
-
-  background-position: center !important;
-  background-size: cover !important;
-  background-repeat: no-repeat !important;
-}.hero-overlay{padding:28px;text-align:center;color:#fff}.hero-kicker{font-size:12px;font-weight:800;letter-spacing:.12em;opacity:.86}.hero-overlay h1{font-size:34px;margin:10px 0 4px}.hero-overlay p{margin:0 0 20px;opacity:.9}.language-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:610px;margin:auto}.language-choice{border:1px solid rgba(255,255,255,.75);background:rgba(255,255,255,.94);border-radius:16px;padding:17px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--text);box-shadow:0 10px 30px rgba(33,28,90,.15)}.language-choice span:nth-child(2){display:grid;gap:3px;flex:1}.language-choice small{color:var(--muted)}.flag-round{font-size:30px}.language-choice svg{color:var(--primary)}
+.dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;max-width:1480px;margin:auto}.main-column{min-width:0}.welcome-hero{min-height:280px;border-radius:22px;overflow:hidden;background:linear-gradient(110deg,rgba(92,67,255,.92),rgba(72,118,255,.82)),url("./assets/lingoplay-hero.png") center/cover;box-shadow:var(--shadow);position:relative}.hero-overlay{padding:28px;text-align:center;color:#fff}.hero-kicker{font-size:12px;font-weight:800;letter-spacing:.12em;opacity:.86}.hero-overlay h1{font-size:34px;margin:10px 0 4px}.hero-overlay p{margin:0 0 20px;opacity:.9}.language-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:610px;margin:auto}.language-choice{border:1px solid rgba(255,255,255,.75);background:rgba(255,255,255,.94);border-radius:16px;padding:17px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--text);box-shadow:0 10px 30px rgba(33,28,90,.15)}.language-choice span:nth-child(2){display:grid;gap:3px;flex:1}.language-choice small{color:var(--muted)}.flag-round{font-size:30px}.language-choice svg{color:var(--primary)}
 .recent-strip{margin-top:14px;padding:14px 18px;display:grid;grid-template-columns:1.5fr 1fr auto 1.5fr 1fr auto;align-items:center;gap:12px;font-size:12px}.recent-strip div:first-child,.recent-strip div:nth-child(4){display:grid;gap:3px}.recent-strip span,.recent-strip small{color:var(--muted)}
 .section-heading{display:flex;justify-content:space-between;align-items:end;margin:24px 0 12px}.section-heading small,.section-kicker{font-size:12px;color:var(--primary);font-weight:800;letter-spacing:.08em}.section-heading h2,.view-header h2{margin:4px 0 0;font-size:25px}
 .learning-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.learning-card{border-radius:17px;padding:17px;border:1px solid var(--line);position:relative;min-height:220px;display:flex;flex-direction:column;gap:12px;overflow:hidden}.learning-card.blue{background:#f2f8ff}.learning-card.pink{background:#fff4f8}.learning-card.green{background:#f2fbf4}.learning-card.orange{background:#fff7ef}.learning-card small{color:var(--primary);font-weight:700}.learning-card h3{margin:7px 0 3px;font-size:16px}.learning-card p{margin:0;color:var(--muted);font-size:13px}.learning-card .card-emoji{font-size:34px;position:absolute;right:15px;top:50px}.learning-card .btn{margin-top:auto}.btn{border:0;border-radius:12px;padding:12px 17px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}.btn svg{width:17px}.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;box-shadow:0 8px 18px rgba(109,74,255,.22)}.btn-secondary,.btn-soft,.btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}.btn-small{padding:9px 12px}.btn-large{padding:14px 22px}
@@ -45,3 +32,239 @@ svg{display:inline-block;vertical-align:middle;flex:none}
 .brand-mark svg,.nav-btn svg,.icon-button svg,.feature-icon svg,.round-icon svg,
 .btn svg,.language-choice svg,.panel-icon svg,.today-word button svg{width:20px;height:20px}
 .brand-mark svg{width:24px;height:24px}
+
+
+/* ===== BẢN SỬA CÂN ĐỐI BANNER + RESPONSIVE ===== */
+
+/* Giữ toàn bộ nội dung không bị kéo quá rộng trên màn hình lớn */
+.page-shell{
+  width:calc(100% - 264px);
+  max-width:none;
+}
+.dashboard-grid{
+  width:100%;
+  max-width:1480px;
+  margin:0 auto;
+  grid-template-columns:minmax(0,1fr) minmax(300px,360px);
+  align-items:start;
+}
+
+/* Banner mới: ảnh chỉ làm nền trang trí, chữ và nút là phần tử thật */
+.welcome-hero,
+body.dark .welcome-hero{
+  min-height:300px;
+  height:auto;
+  border-radius:22px;
+  overflow:hidden;
+  position:relative;
+  background-image:url("/assets/lingoplay-hero-clean.png") !important;
+  background-position:center !important;
+  background-size:cover !important;
+  background-repeat:no-repeat !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+/* lớp phủ nhẹ để dùng được ở cả sáng và tối */
+.welcome-hero::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(
+    90deg,
+    rgba(255,255,255,.08),
+    rgba(255,255,255,.18) 35%,
+    rgba(255,255,255,.18) 65%,
+    rgba(255,255,255,.08)
+  );
+  pointer-events:none;
+}
+body.dark .welcome-hero::before{
+  background:linear-gradient(
+    90deg,
+    rgba(10,15,25,.12),
+    rgba(10,15,25,.18) 35%,
+    rgba(10,15,25,.18) 65%,
+    rgba(10,15,25,.12)
+  );
+}
+
+.hero-overlay{
+  width:min(680px,100%);
+  padding:14px 18px 18px;
+  position:relative;
+  z-index:1;
+  text-align:center;
+  color:#172033;
+  border-radius:20px;
+}
+body.dark .hero-overlay{
+  color:#fff;
+  background:rgba(14,17,23,.18);
+  backdrop-filter:blur(2px);
+}
+
+.hero-kicker{
+  font-size:12px;
+  letter-spacing:.11em;
+}
+.hero-overlay h1{
+  font-size:clamp(28px,3vw,42px);
+  line-height:1.15;
+  margin:10px 0 4px;
+}
+.hero-overlay p{
+  font-size:clamp(14px,1.4vw,17px);
+  margin-bottom:18px;
+}
+
+/* Hai nút chọn ngôn ngữ giống ảnh mẫu, không quá lớn */
+.language-choice-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  width:min(620px,100%);
+}
+.language-choice{
+  min-height:82px;
+  padding:14px 16px;
+  border-radius:15px;
+  border:1px solid rgba(109,74,255,.15);
+  background:rgba(255,255,255,.94);
+  color:#172033;
+  box-shadow:0 10px 28px rgba(64,59,130,.10);
+}
+body.dark .language-choice{
+  background:rgba(20,24,33,.92);
+  color:#fff;
+  border-color:rgba(255,255,255,.16);
+}
+.language-choice b{font-size:17px}
+.language-choice small{font-size:12px}
+.flag-round{font-size:28px}
+
+/* Sửa nút Học ngay và icon mũi tên bị phóng quá lớn */
+.level-summary{
+  min-height:92px;
+  padding:14px 16px;
+  gap:12px;
+}
+.level-summary > div{
+  min-width:0;
+}
+.level-summary button{
+  flex:0 0 auto;
+  width:auto;
+  min-width:100px;
+  max-width:130px;
+  padding:9px 12px;
+  border-radius:10px;
+  line-height:1.2;
+  white-space:nowrap;
+  justify-content:center;
+}
+.level-summary button svg,
+.level-summary button i,
+.level-summary svg{
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  max-width:16px !important;
+}
+.level-illustration{
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  flex:0 0 46px;
+  font-size:30px;
+}
+
+/* Không cho icon SVG nào tự kéo giãn */
+svg{
+  width:1em;
+  height:1em;
+  max-width:24px;
+  max-height:24px;
+}
+
+/* Màn hình laptop nhỏ */
+@media (max-width:1366px){
+  .page-shell{padding:96px 18px 28px}
+  .dashboard-grid{
+    grid-template-columns:minmax(0,1fr) 320px;
+    gap:16px;
+  }
+  .learning-cards{gap:10px}
+  .learning-card{padding:14px}
+}
+
+/* Tablet */
+@media (max-width:1100px){
+  .dashboard-grid{grid-template-columns:1fr}
+  .dashboard-side{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .quick-lookup{grid-column:1/-1}
+  .welcome-hero{min-height:290px}
+}
+
+/* Tablet dọc và điện thoại lớn */
+@media (max-width:900px){
+  .page-shell{
+    width:100%;
+    margin-left:0;
+    padding:92px 14px 24px;
+  }
+  .welcome-hero{
+    min-height:320px;
+    padding:20px 14px;
+    background-position:center !important;
+  }
+  .hero-overlay{padding:12px}
+  .language-choice-grid{
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .language-choice{
+    min-height:76px;
+    padding:12px;
+  }
+  .level-columns{grid-template-columns:1fr}
+  .dashboard-side{grid-template-columns:1fr}
+}
+
+/* Điện thoại */
+@media (max-width:620px){
+  .welcome-hero{
+    min-height:410px;
+    border-radius:17px;
+    background-size:auto 100% !important;
+    background-position:center !important;
+  }
+  .hero-overlay h1{font-size:28px}
+  .language-choice-grid{grid-template-columns:1fr}
+  .language-choice{
+    width:100%;
+    min-height:74px;
+  }
+  .level-summary{
+    display:grid;
+    grid-template-columns:46px minmax(0,1fr);
+  }
+  .level-summary button{
+    grid-column:1/-1;
+    width:100%;
+    max-width:none;
+    min-width:0;
+  }
+}
+
+/* Điện thoại rất nhỏ */
+@media (max-width:390px){
+  .page-shell{padding-left:8px;padding-right:8px}
+  .welcome-hero{padding-left:8px;padding-right:8px}
+  .hero-overlay{padding-left:4px;padding-right:4px}
+  .language-choice{padding:10px}
+}
