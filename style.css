@@ -962,3 +962,102 @@ body.dark .profile-role-badge{background:#241d3d}
     font-size:14px !important;
   }
 }
+
+
+/* ===== ÂM THANH LINGOPLAY ===== */
+.sound-toggle{position:relative;flex:0 0 42px}
+.sound-toggle svg{width:20px!important;height:20px!important;display:block}
+.sound-toggle:active{transform:scale(.94)}
+@media(max-width:900px){
+  .sound-toggle{width:42px!important;height:42px!important;min-width:42px!important}
+}
+
+
+/* =========================================================
+   FIX CUỐI 304: CĂN GIỮ ICON CHÍNH XÁC TRÊN ĐIỆN THOẠI
+   Chỉ tác động nút chỉ có icon, không phá nút có chữ/desktop.
+========================================================= */
+.local-lucide-icon{
+  display:block !important;
+  width:1em !important;
+  height:1em !important;
+  margin:0 !important;
+  flex:0 0 auto !important;
+  transform:none !important;
+  transform-origin:center !important;
+  overflow:visible;
+}
+
+/* Các nút chỉ chứa SVG */
+.icon-button,
+.today-word button,
+.quick-lookup-box button,
+.global-search button{
+  position:relative !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:0 !important;
+  line-height:0 !important;
+  text-indent:0 !important;
+}
+
+.icon-button > .local-lucide-icon,
+.today-word button > .local-lucide-icon,
+.quick-lookup-box button > .local-lucide-icon,
+.global-search button > .local-lucide-icon{
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  margin:0 !important;
+  transform:translate(-50%,-50%) !important;
+}
+
+.icon-button > .local-lucide-icon{width:21px !important;height:21px !important}
+.today-word button > .local-lucide-icon{width:19px !important;height:19px !important}
+.quick-lookup-box button > .local-lucide-icon{width:22px !important;height:22px !important}
+.global-search button > .local-lucide-icon{width:18px !important;height:18px !important}
+
+/* Icon trong nút có chữ vẫn nằm đúng giữa theo chiều dọc */
+.btn > .local-lucide-icon,
+.nav-btn > .local-lucide-icon,
+.language-choice > .local-lucide-icon,
+.level-summary button > .local-lucide-icon{
+  position:static !important;
+  transform:none !important;
+  align-self:center !important;
+}
+
+@media(max-width:900px){
+  .icon-button,
+  #mobileMenuBtn,
+  .sound-toggle{
+    width:46px !important;
+    height:46px !important;
+    min-width:46px !important;
+    min-height:46px !important;
+  }
+  .icon-button > .local-lucide-icon,
+  #mobileMenuBtn > .local-lucide-icon,
+  .sound-toggle > .local-lucide-icon{
+    width:23px !important;
+    height:23px !important;
+  }
+}
+
+@media(max-width:430px){
+  .icon-button,
+  #mobileMenuBtn,
+  .sound-toggle{
+    width:44px !important;
+    height:44px !important;
+    min-width:44px !important;
+    min-height:44px !important;
+  }
+  .icon-button > .local-lucide-icon,
+  #mobileMenuBtn > .local-lucide-icon,
+  .sound-toggle > .local-lucide-icon{
+    width:22px !important;
+    height:22px !important;
+  }
+}

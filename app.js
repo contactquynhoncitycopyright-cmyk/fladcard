@@ -163,6 +163,153 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
+// ===== ÂM THANH GIAO DIỆN & TRÒ CHƠI =====
+let soundEnabled = localStorage.getItem("lingoplay-sound") !== "off";
+let audioContext = null;
+let guestWelcomePlayed = false;
+let introMusicPlayed = false;
+let introMusicTimer = null;
+
+function getAudioContext() {
+  if (!audioContext) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    audioContext = new AudioCtx();
+  }
+  if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
+  return audioContext;
+}
+
+function playTone(frequency = 440, duration = 0.12, type = "sine", volume = 0.05, delay = 0) {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const start = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(frequency, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), start + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + duration + 0.03);
+}
+
+function playUiSound(kind = "tap") {
+  if (!soundEnabled) return;
+  if (kind === "welcome") {
+    playTone(523.25, 0.13, "sine", 0.045, 0);
+    playTone(659.25, 0.13, "sine", 0.045, 0.12);
+    playTone(783.99, 0.22, "sine", 0.05, 0.24);
+  } else if (kind === "correct") {
+    playTone(523.25, 0.11, "triangle", 0.055, 0);
+    playTone(659.25, 0.11, "triangle", 0.055, 0.1);
+    playTone(880, 0.24, "triangle", 0.06, 0.2);
+  } else if (kind === "wrong") {
+    playTone(220, 0.16, "sawtooth", 0.035, 0);
+    playTone(174.61, 0.22, "sawtooth", 0.03, 0.13);
+  } else if (kind === "start") {
+    playTone(440, 0.08, "square", 0.025, 0);
+    playTone(554.37, 0.11, "square", 0.025, 0.08);
+  } else {
+    playTone(620, 0.06, "sine", 0.025, 0);
+  }
+}
+
+
+function playIntroMusicOnce() {
+  if (introMusicPlayed || !soundEnabled) return;
+  introMusicPlayed = true;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  // Giai điệu mở đầu nguyên bản theo phong cách nhẹ nhàng/lo-fi.
+  // Nhạc chỉ bắt đầu sau lần chạm đầu tiên vì trình duyệt di động chặn autoplay.
+  const master = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2400;
+  master.gain.setValueAtTime(0.0001, ctx.currentTime);
+  master.gain.exponentialRampToValueAtTime(0.16, ctx.currentTime + 0.08);
+  master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 9.6);
+  filter.connect(master);
+  master.connect(ctx.destination);
+
+  const begin = ctx.currentTime + 0.04;
+
+  function musicNote(frequency, when, duration, volume = 0.13, type = "sine") {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, begin + when);
+    gain.gain.setValueAtTime(0.0001, begin + when);
+    gain.gain.exponentialRampToValueAtTime(volume, begin + when + 0.035);
+    gain.gain.exponentialRampToValueAtTime(0.0001, begin + when + duration);
+    osc.connect(gain);
+    gain.connect(filter);
+    osc.start(begin + when);
+    osc.stop(begin + when + duration + 0.04);
+  }
+
+  // Hợp âm: Cmaj7 → Am7 → Fmaj7 → G6.
+  const chords = [
+    [0.0, [261.63, 329.63, 392.00, 493.88]],
+    [2.2, [220.00, 261.63, 329.63, 392.00]],
+    [4.4, [174.61, 220.00, 261.63, 329.63]],
+    [6.6, [196.00, 246.94, 293.66, 329.63]]
+  ];
+  chords.forEach(([time, notes]) => {
+    notes.forEach((frequency, index) => {
+      musicNote(frequency, time + index * 0.07, 2.05, 0.035, index === 0 ? "triangle" : "sine");
+    });
+  });
+
+  // Giai điệu chính dễ nghe, không dùng bài nhạc có bản quyền.
+  const melody = [
+    [659.25,0.00,.34],[783.99,.38,.34],[880.00,.76,.62],[783.99,1.46,.30],[659.25,1.82,.36],
+    [523.25,2.24,.34],[659.25,2.62,.34],[783.99,3.00,.62],[659.25,3.70,.30],[587.33,4.06,.36],
+    [523.25,4.48,.34],[659.25,4.86,.34],[698.46,5.24,.62],[783.99,5.94,.30],[880.00,6.30,.36],
+    [783.99,6.72,.34],[659.25,7.10,.34],[587.33,7.48,.34],[523.25,7.86,.90]
+  ];
+  melody.forEach(([frequency, when, duration], index) => {
+    musicNote(frequency, when, duration, 0.085, index % 3 === 0 ? "triangle" : "sine");
+  });
+
+  // Nhịp nền rất nhẹ.
+  for (let beat = 0; beat < 18; beat += 1) {
+    musicNote(130.81, beat * 0.48, 0.10, beat % 2 === 0 ? 0.022 : 0.012, "triangle");
+  }
+}
+function updateSoundButton() {
+  const btn = document.getElementById("soundToggle");
+  if (!btn) return;
+  btn.setAttribute("aria-label", soundEnabled ? "Tắt âm thanh" : "Bật âm thanh");
+  btn.setAttribute("title", soundEnabled ? "Tắt âm thanh" : "Bật âm thanh");
+  btn.innerHTML = `<i data-lucide="${soundEnabled ? "volume-2" : "volume-x"}"></i>`;
+  if (typeof refreshIcons === "function") refreshIcons();
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem("lingoplay-sound", soundEnabled ? "on" : "off");
+  updateSoundButton();
+  if (soundEnabled) {
+    playUiSound("welcome");
+    playIntroMusicOnce();
+  }
+}
+
+function playGuestWelcomeOnce() {
+  if (guestWelcomePlayed || currentUser || !soundEnabled) return;
+  guestWelcomePlayed = true;
+  playUiSound("welcome");
+  playIntroMusicOnce();
+}
+
 async function refreshUser() {
   const data = await api("/api/auth/me");
   currentUser = data.user;
@@ -180,6 +327,7 @@ async function refreshUser() {
 }
 
 function openAuth(mode="login") {
+  playUiSound("tap");
   $("#authModal").classList.remove("hidden");
   switchAuth(mode);
 }
@@ -270,6 +418,7 @@ function renderProfile() {
 }
 
 function newGame() {
+  playUiSound("start");
   if (currentWords.length < 2) {
     $("#gameMessage").textContent = "Hãy chọn cấp có ít nhất 2 từ ở mục Học từ.";
     return;
@@ -287,12 +436,14 @@ function newGame() {
 async function answerGame(id) {
   if (!currentQuestion) return;
   if (id === currentQuestion.id) {
+    playUiSound("correct");
     $("#gameMessage").textContent = "Chính xác! +10 XP";
     if (currentUser) {
       await api("/api/progress/xp", {method:"POST", body:JSON.stringify({amount:10})});
       await refreshUser();
     }
   } else {
+    playUiSound("wrong");
     $("#gameMessage").textContent = `Chưa đúng. Đáp án: ${currentQuestion.meaning}`;
   }
 }
@@ -424,6 +575,7 @@ function escapeHtml(s="") {
 $$(".nav-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
 $$("[data-go]").forEach(b => b.onclick = () => showView(b.dataset.go));
 if ($("#authBtn")) $("#authBtn").onclick = () => openAuth("login");
+if ($("#soundToggle")) $("#soundToggle").onclick = toggleSound;
 if ($("#openRegister")) $("#openRegister").onclick = () => openAuth("register");
 if ($("#closeModal")) $("#closeModal").onclick = () => $("#authModal")?.classList.add("hidden");
 if ($("#loginTab")) $("#loginTab").onclick = () => switchAuth("login");
@@ -538,6 +690,7 @@ const LOCAL_ICONS = {
   "heart": '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
   "brain": '<path d="M9.5 4A3.5 3.5 0 0 0 6 7.5v.2A3.5 3.5 0 0 0 4 14a3.5 3.5 0 0 0 3.5 3.5H9V4zM14.5 4A3.5 3.5 0 0 1 18 7.5v.2A3.5 3.5 0 0 1 20 14a3.5 3.5 0 0 1-3.5 3.5H15V4z"/><path d="M9 8H7M15 8h2M9 13H6M15 13h3M9 17v3M15 17v3"/>',
   "volume-2": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/>',
+  "volume-x": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m16 9 5 5M21 9l-5 5"/>',
   "plus": '<path d="M12 5v14M5 12h14"/>',
   "upload": '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -565,6 +718,8 @@ function refreshIcons() {
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.classList.add("local-lucide-icon");
 
     svg.innerHTML = body;
     node.replaceWith(svg);
@@ -573,6 +728,14 @@ function refreshIcons() {
 
 document.addEventListener("DOMContentLoaded", () => {
   refreshIcons();
+  updateSoundButton();
+
+  const unlockGuestSound = () => {
+    getAudioContext();
+    playGuestWelcomeOnce();
+  };
+  document.addEventListener("pointerdown", unlockGuestSound, { once: true, passive: true });
+  document.addEventListener("keydown", unlockGuestSound, { once: true });
 
   const sidebar = document.getElementById("sidebar");
   const mobileMenuBtn = document.getElementById("mobileMenuBtn");
