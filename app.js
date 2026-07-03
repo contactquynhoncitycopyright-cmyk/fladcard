@@ -406,13 +406,13 @@ async function refreshUser() {
   const data = await api("/api/auth/me");
   currentUser = data.user;
   const logged = !!currentUser;
-  $("#authBtn").classList.toggle("hidden", logged);
-  $("#logoutBtn").classList.toggle("hidden", !logged);
-  $("#userBadge").classList.toggle("hidden", !logged);
+  $("#authBtn")?.classList.toggle("hidden", logged);
+  $("#logoutBtn")?.classList.toggle("hidden", !logged);
+  $("#userBadge")?.classList.toggle("hidden", !logged);
   $$(".admin-only").forEach(x => x.classList.toggle("hidden", currentUser?.role !== "admin"));
   $$(".auth-only").forEach(x => x.classList.toggle("hidden", !logged));
   if (logged) {
-    $("#userBadge").textContent = `${currentUser.name} • ${currentUser.xp} XP`;
+    if($("#userBadge")) $("#userBadge").textContent = `${currentUser.name} • ${currentUser.xp} XP`;
     renderProfile();
     renderAccountProgress();
   }
@@ -509,7 +509,7 @@ async function loadStudyStats() {
 }
 
 let studyHeartbeatTimer = null;
-const STUDY_VIEWS = new Set(['home','learn','learned','game','phrases','lookup']);
+const STUDY_VIEWS = new Set(['learn','learned','game','phrases','lookup','lessons','topics']);
 function startStudyHeartbeat() {
   if (studyHeartbeatTimer) clearInterval(studyHeartbeatTimer);
   studyHeartbeatTimer = setInterval(async () => {
@@ -1174,11 +1174,10 @@ async function runQuickLookup() {
   result.innerHTML = "Đang tra từ...";
 
   try {
-    const data = await api(`/api/lookup?word=${encodeURIComponent(word)}`);
-    const item = data?.word || data?.result || data;
-    const displayWord = item?.word || word;
-    const pronunciation = item?.pronunciation || item?.phonetic || "";
-    const meaning = item?.meaning || item?.vietnamese || item?.translation || "Chưa có nghĩa tiếng Việt.";
+    const data = await api(`/api/dictionary?word=${encodeURIComponent(word)}`);
+    const displayWord = data?.word || word;
+    const pronunciation = data?.phonetic || data?.local_items?.[0]?.pronunciation || "";
+    const meaning = data?.translation || data?.local_items?.[0]?.meaning || data?.meanings?.[0]?.definitions?.[0]?.definition || "Chưa có nghĩa tiếng Việt.";
 
     result.innerHTML = `
       <b>${escapeHtml(displayWord)}</b>
@@ -1207,7 +1206,7 @@ if ($("#resetBackBtn")) $("#resetBackBtn").onclick = () => switchAuth("login");
 if ($("#forgotForm")) $("#forgotForm").onsubmit = async e => {
   e.preventDefault(); const form=e.currentTarget; const body=Object.fromEntries(new FormData(form).entries());
   try { const data=await api('/api/auth/forgot-password',{method:'POST',body:JSON.stringify(body)}); $("#authMessage").textContent=data.message;
-    $("#resetForm input[name=email]").value=body.email; switchAuth('reset'); $("#authMessage").textContent=data.message;
+    const resetEmail=$("#resetForm input[name=email]"); if(resetEmail) resetEmail.value=body.email; switchAuth('reset'); $("#authMessage").textContent=data.message;
   } catch(err) { $("#authMessage").textContent=err.message; }
 };
 if ($("#resetForm")) $("#resetForm").onsubmit = async e => {
@@ -1490,14 +1489,14 @@ async function loadDashboardSummary(){
   }catch(e){console.warn(e)}
 }
 async function loadLessons(){
-  if(!currentUser)return openAuth('login'); const lang=document.querySelector('#lessonLanguage').value,level=document.querySelector('#lessonLevel').value;
-  const d=await api(`/api/lessons?language=${lang}&level=${level}`); const grid=document.querySelector('#lessonGrid');
+  if(!currentUser){openAuth('login');return;} const langEl=document.querySelector('#lessonLanguage'),levelEl=document.querySelector('#lessonLevel'),grid=document.querySelector('#lessonGrid'); if(!langEl||!levelEl||!grid)return; const lang=langEl.value,level=levelEl.value;
+  const d=await api(`/api/lessons?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}`);
   grid.innerHTML=d.items.map(x=>`<button class="lesson-node ${x.completed?'done':''} ${!x.unlocked?'locked':''}" data-lesson="${x.number}" ${!x.unlocked?'disabled':''}><span>${x.completed?'✓':x.number}</span><div><b>Bài ${x.number}: ${escapeHtml(x.title)}</b><small>${x.word_count} từ · Điểm tốt nhất ${x.best_score}%</small></div><i data-lucide="${x.unlocked?'chevron-right':'lock'}"></i></button>`).join('');
   grid.querySelectorAll('[data-lesson]').forEach(b=>b.onclick=()=>openLesson(Number(b.dataset.lesson))); refreshIcons();
 }
 async function openLesson(number){
-  const lang=document.querySelector('#lessonLanguage').value,level=document.querySelector('#lessonLevel').value; const d=await api(`/api/lessons/${number}?language=${lang}&level=${level}`);
-  const box=document.querySelector('#lessonPlayer'); box.classList.remove('hidden'); box.innerHTML=`<div class="lesson-player-head"><h3>Bài ${number}: ${escapeHtml(d.title)}</h3><button class="btn btn-outline" id="closeLessonPlayer">Đóng</button></div><div class="lesson-word-list">${d.items.map(w=>`<article><button data-speak="${escapeAttribute(w.word)}"><i data-lucide="volume-2"></i></button><div><b>${escapeHtml(w.word)}</b><small>${escapeHtml(w.pronunciation||'')}</small><p>${escapeHtml(w.meaning)}</p></div></article>`).join('')}</div><div class="lesson-finish"><label>Điểm tự đánh giá (0–100)</label><input id="lessonScore" type="number" min="0" max="100" value="80"><button id="completeLessonBtn" class="btn btn-primary">Hoàn thành bài</button><span id="lessonResult"></span></div>`;
+  const langEl=document.querySelector('#lessonLanguage'),levelEl=document.querySelector('#lessonLevel'),box=document.querySelector('#lessonPlayer'); if(!langEl||!levelEl||!box)return; const lang=langEl.value,level=levelEl.value; const d=await api(`/api/lessons/${number}?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}`);
+   box.classList.remove('hidden'); box.innerHTML=`<div class="lesson-player-head"><h3>Bài ${number}: ${escapeHtml(d.title)}</h3><button class="btn btn-outline" id="closeLessonPlayer">Đóng</button></div><div class="lesson-word-list">${d.items.map(w=>`<article><button data-speak="${escapeAttribute(w.word)}"><i data-lucide="volume-2"></i></button><div><b>${escapeHtml(w.word)}</b><small>${escapeHtml(w.pronunciation||'')}</small><p>${escapeHtml(w.meaning)}</p></div></article>`).join('')}</div><div class="lesson-finish"><label>Điểm tự đánh giá (0–100)</label><input id="lessonScore" type="number" min="0" max="100" value="80"><button id="completeLessonBtn" class="btn btn-primary">Hoàn thành bài</button><span id="lessonResult"></span></div>`;
   box.querySelector('#closeLessonPlayer').onclick=()=>box.classList.add('hidden'); box.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak));
   box.querySelector('#completeLessonBtn').onclick=async()=>{const score=Number(box.querySelector('#lessonScore').value||0);const r=await api(`/api/lessons/${number}/complete`,{method:'POST',body:JSON.stringify({language:lang,level,score})});box.querySelector('#lessonResult').textContent=r.completed?`Đã hoàn thành! +${r.earned_xp} XP`:'Cần ít nhất 60 điểm.';await loadLessons();await refreshUser();await loadDashboardSummary();}; refreshIcons(); box.scrollIntoView({behavior:'smooth'});
 }
@@ -1532,3 +1531,6 @@ if(document.querySelector('#closeLegalModal'))document.querySelector('#closeLega
 
 const _oldShowView=showView; showView=function(name){_oldShowView(name);if(name==='lessons')loadLessons().catch(e=>console.warn(e));if(name==='leaderboard')loadLeaderboard().catch(e=>console.warn(e));if(name==='profile'){if(currentUser&&document.querySelector('#profileNameInput'))document.querySelector('#profileNameInput').value=currentUser.name||'';loadDashboardSummary();}};
 setTimeout(()=>{if(currentUser)loadDashboardSummary()},1200);
+
+window.addEventListener('error',e=>console.error('LingoPlay runtime error:',e.error||e.message));
+window.addEventListener('unhandledrejection',e=>console.error('LingoPlay async error:',e.reason));

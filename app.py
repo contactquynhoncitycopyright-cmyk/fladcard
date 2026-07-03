@@ -1,4 +1,4 @@
-import os, time, json, urllib.parse, urllib.request, csv, io, secrets, re, smtplib, ssl, xml.etree.ElementTree as ET
+import os, time, json, urllib.parse, urllib.request, csv, io, secrets, re, smtplib, ssl, hashlib, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from email.message import EmailMessage
@@ -20,7 +20,7 @@ elif DB_URL.startswith('postgresql://'):
 
 app = Flask(__name__, static_folder=None)
 app.config.update(
-    SECRET_KEY=os.getenv('SECRET_KEY', 'change-this-in-production-' + os.urandom(12).hex()),
+    SECRET_KEY=os.getenv('SECRET_KEY') or hashlib.sha256((DB_URL + '|' + os.getenv('ADMIN_EMAIL','') + '|lingoplay-session-v1').encode('utf-8')).hexdigest(),
     SQLALCHEMY_DATABASE_URI=DB_URL,
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     SESSION_COOKIE_HTTPONLY=True,
@@ -246,7 +246,10 @@ def notify_admin(title, message):
 
 def send_reset_email(to_email, code):
     host=os.getenv('SMTP_HOST','').strip(); user=os.getenv('SMTP_USER','').strip(); password=os.getenv('SMTP_PASSWORD','')
-    port=int(os.getenv('SMTP_PORT','587')); sender=os.getenv('SMTP_FROM',user).strip()
+    
+    try: port=int(os.getenv('SMTP_PORT','587'))
+    except ValueError: port=587
+    sender=os.getenv('SMTP_FROM',user).strip()
     if not host or not user or not password or not sender: return False
     msg=EmailMessage(); msg['Subject']='Mã đặt lại mật khẩu LingoPlay'; msg['From']=sender; msg['To']=to_email
     msg.set_content(f'Mã đặt lại mật khẩu của bạn là: {code}\nMã có hiệu lực trong 15 phút. Không chia sẻ mã này với người khác.')
@@ -549,7 +552,6 @@ def game_answer():
     if expires<now: row.used=True; db.session.commit(); return jsonify(error='Câu hỏi đã hết hạn.'),400
     row.used=True; correct=answer_id==row.answer_word_id
     u=current_user()
-    if u: register_completed_lesson(u.id)
     earned=0
     if correct and u and row.user_id==u.id:
         u.xp+=10; earned=10
@@ -732,7 +734,6 @@ def review_answer():
     exp=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
     if exp<now: row.used=True; db.session.commit(); return jsonify(error='Câu ôn tập đã hết hạn.'),400
     learned=db.session.get(LearnedWord,row.learned_id); correct=answer_id==row.answer_word_id; row.used=True
-    register_completed_lesson(u.id)
     if not learned:return jsonify(error='Từ này không còn trong danh sách đã học.'),404
     learned.last_reviewed_at=now
     if correct:
@@ -759,6 +760,7 @@ def save_word():
     w=Word(language=lang,level=level,word=word,pronunciation=str(d.get('pronunciation',''))[:255],meaning=meaning,example=str(d.get('example',''))[:2000],topic=str(d.get('topic','tra từ API'))[:100]); db.session.add(w); db.session.commit(); return jsonify(item=word_json(w),already_exists=False),201
 
 @app.get('/api/dictionary')
+@app.get('/api/lookup')
 @limited('dictionary',40,60)
 def dictionary():
     word=request.args.get('word','').strip()[:80]
@@ -958,10 +960,17 @@ def leaderboard():
     return jsonify(period=period,start=start.isoformat(),items=[{'rank':i+1,'name':r.name,'xp':int(r.xp or 0)} for i,r in enumerate(rows)])
 
 LESSON_TOPICS=['Chào hỏi','Gia đình','Hằng ngày','Trường học','Ăn uống','Mua sắm','Du lịch','Công việc','Sức khỏe','Công nghệ','Thiên nhiên','Ôn tập tổng hợp']
+
+def valid_course(language, level):
+    language=str(language or '').strip().lower()
+    level=str(level or '').strip().upper().replace(' ','')
+    return language, level, language in VALID_LEVELS and level in VALID_LEVELS[language]
+
 @app.get('/api/lessons')
 @login_required
 def lessons_list():
-    u=current_user(); lang=request.args.get('language','english'); level=request.args.get('level','A1').upper().replace(' ','')
+    u=current_user(); lang,level,ok=valid_course(request.args.get('language','english'),request.args.get('level','A1'))
+    if not ok:return jsonify(error='Ngôn ngữ hoặc cấp độ không hợp lệ.'),400
     total=Word.query.filter_by(language=lang,level=level).count(); per=max(5,(total+11)//12 if total else 10)
     progress={x.lesson_number:x for x in LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level).all()}
     items=[]
@@ -975,7 +984,8 @@ def lessons_list():
 @login_required
 def lesson_detail(number):
     if number<1 or number>12:return jsonify(error='Bài học không hợp lệ'),404
-    u=current_user(); lang=request.args.get('language','english'); level=request.args.get('level','A1').upper().replace(' ','')
+    u=current_user(); lang,level,ok=valid_course(request.args.get('language','english'),request.args.get('level','A1'))
+    if not ok:return jsonify(error='Ngôn ngữ hoặc cấp độ không hợp lệ.'),400
     prior=LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first()
     if number>1 and not prior:return jsonify(error='Hãy hoàn thành bài trước để mở khóa.'),403
     total=Word.query.filter_by(language=lang,level=level).count(); per=max(5,(total+11)//12 if total else 10)
@@ -987,13 +997,20 @@ def lesson_detail(number):
 @limited('lesson-complete',30,60)
 def lesson_complete(number):
     if number<1 or number>12:return jsonify(error='Bài học không hợp lệ'),404
-    u=current_user(); d=request.get_json(silent=True) or {}; lang=str(d.get('language','english')); level=str(d.get('level','A1')).upper().replace(' ','')
-    score=max(0,min(100,int(d.get('score',0) or 0)))
+    u=current_user(); d=request.get_json(silent=True) or {}; lang,level,ok=valid_course(d.get('language','english'),d.get('level','A1'))
+    if not ok:return jsonify(error='Ngôn ngữ hoặc cấp độ không hợp lệ.'),400
+    
+    try: score=max(0,min(100,int(d.get('score',0) or 0)))
+    except (TypeError,ValueError): return jsonify(error='Điểm số không hợp lệ.'),400
     if number>1 and not LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first():
         return jsonify(error='Bài học này chưa được mở khóa.'),403
     row=LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number).first()
     if not row: row=LessonProgress(user_id=u.id,language=lang,level=level,lesson_number=number); db.session.add(row)
-    first=not row.completed; row.attempts+=1; row.best_score=max(row.best_score or 0,score); row.completed=score>=60 or row.completed; row.updated_at=datetime.now(timezone.utc)
+    first=not bool(row.completed)
+    row.attempts=int(row.attempts or 0)+1
+    row.best_score=max(int(row.best_score or 0),score)
+    row.completed=bool(score>=60 or row.completed)
+    row.updated_at=datetime.now(timezone.utc)
     earned=20 if first and row.completed else (5 if score>=80 else 0)
     if earned: u.xp+=earned; record_activity(u.id,xp=earned)
     if first and row.completed: register_completed_lesson(u.id)
@@ -1053,7 +1070,8 @@ def server_error(err):
 @admin_required
 def stats():
     today=datetime.now(timezone.utc).date()
-    return jsonify(users=User.query.count(),words=Word.query.count(),phrases=Phrase.query.count(),active_users=User.query.filter_by(is_active=True).count(),today_active=DailyActivity.query.filter_by(activity_date=today).count(),lessons=func.coalesce(db.session.query(func.sum(StudyStat.lessons_completed)).scalar(),0),audit_logs=AuditLog.query.count())
+    total_lessons=int(db.session.query(func.coalesce(func.sum(StudyStat.lessons_completed),0)).scalar() or 0)
+    return jsonify(users=User.query.count(),words=Word.query.count(),phrases=Phrase.query.count(),active_users=User.query.filter_by(is_active=True).count(),today_active=DailyActivity.query.filter_by(activity_date=today).count(),lessons=total_lessons,audit_logs=AuditLog.query.count())
 @app.get('/api/admin/users')
 @admin_required
 def admin_users():
