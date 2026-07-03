@@ -35,6 +35,7 @@ function showView(name) {
   if (name === "lookup") setTimeout(() => $("#lookupInput")?.focus(), 100);
   if (name === "phrases") loadPhrases();
   if (name === "admin") loadAdmin();
+  if (name === "profile") renderProfile();
 }
 
 function fillLevels() {
@@ -54,34 +55,93 @@ function renderLanguageUI(language) {
   $$(".level-chip").forEach(btn => btn.onclick = () => { $("#levelSelect").value = btn.dataset.level; renderLanguageUI(language); loadWords(); });
 }
 
+function saveLearningPreference() {
+  const language = $("#languageSelect")?.value;
+  const level = $("#levelSelect")?.value;
+  if (language) localStorage.setItem("lingoplay_language", language);
+  if (level) localStorage.setItem("lingoplay_level", level);
+}
+
+function restoreLearningPreference() {
+  const languageEl = $("#languageSelect");
+  const levelEl = $("#levelSelect");
+  if (!languageEl || !levelEl) return;
+  const savedLanguage = localStorage.getItem("lingoplay_language");
+  if (savedLanguage && levels[savedLanguage]) languageEl.value = savedLanguage;
+  fillLevels();
+  const savedLevel = localStorage.getItem("lingoplay_level");
+  if (savedLevel && levels[languageEl.value]?.includes(savedLevel)) levelEl.value = savedLevel;
+  renderLanguageUI(languageEl.value);
+}
+
 function selectLanguage(language) {
   $("#languageSelect").value = language;
   fillLevels();
+  saveLearningPreference();
   loadWords();
 }
 
 async function loadWords() {
-  const language = $("#languageSelect").value;
-  const level = $("#levelSelect").value;
-  const search = $("#searchInput").value.trim();
-  const data = await api(`/api/words?language=${encodeURIComponent(language)}&level=${encodeURIComponent(level)}&search=${encodeURIComponent(search)}`);
-  currentWords = data.items;
-  $("#statWords").textContent = currentWords.length + "+";
-  renderLanguageUI(language);
-  $("#wordGrid").innerHTML = currentWords.length ? currentWords.map(w => `
-    <article class="card word-card">
-      <div class="word-top">
-        <div>
-          <h3>${escapeHtml(w.word)}</h3>
-          <div class="pron">${escapeHtml(w.pronunciation || "")}</div>
+  const languageEl = $("#languageSelect");
+  const levelEl = $("#levelSelect");
+  const grid = $("#wordGrid");
+  if (!languageEl || !levelEl || !grid) return;
+
+  const language = languageEl.value;
+  const level = levelEl.value;
+  const search = $("#searchInput")?.value.trim() || "";
+  grid.innerHTML = `<div class="card empty word-loading">Đang tải từ vựng...</div>`;
+
+  const fetchWords = async (requestedLevel) => {
+    const url = `/api/words?language=${encodeURIComponent(language)}&level=${encodeURIComponent(requestedLevel)}&search=${encodeURIComponent(search)}`;
+    const data = await api(url);
+    return Array.isArray(data.items) ? data.items : [];
+  };
+
+  try {
+    let items = await fetchWords(level);
+
+    // Một số file CSV cũ dùng "HSK 1", trong khi giao diện dùng "HSK1".
+    // Thử cả hai định dạng để không làm người dùng tưởng dữ liệu đã mất.
+    if (!items.length && language === "chinese" && /^HSK\d$/i.test(level)) {
+      items = await fetchWords(level.replace(/HSK/i, "HSK "));
+    }
+
+    currentWords = items;
+    if ($("#statWords")) $("#statWords").textContent = String(currentWords.length);
+    renderLanguageUI(language);
+
+    grid.innerHTML = currentWords.length ? currentWords.map(w => `
+      <article class="card word-card">
+        <div class="word-top">
+          <div>
+            <h3>${escapeHtml(w.word)}</h3>
+            <div class="pron">${escapeHtml(w.pronunciation || "")}</div>
+          </div>
+          <span class="topic">${escapeHtml(w.level || level)} • ${escapeHtml(w.topic || "general")}</span>
         </div>
-        <span class="topic">${escapeHtml(w.level)} • ${escapeHtml(w.topic || "general")}</span>
-      </div>
-      <p><b>${escapeHtml(w.meaning)}</b></p>
-      <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
-      <button class="speak icon-only" type="button" aria-label="Phát âm ${escapeHtml(w.word)}" onclick='speak(${JSON.stringify(w.word)})'>${iconSvg("volume-2")}</button>
-    </article>
-  `).join("") : `<div class="card empty">Chưa có dữ liệu phù hợp.</div>`;
+        <p><b>${escapeHtml(w.meaning || "Chưa có nghĩa")}</b></p>
+        <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
+        <button class="speak" type="button" onclick='speak(${JSON.stringify(w.word || "")})' aria-label="Nghe phát âm">
+          <span aria-hidden="true">🔊</span>
+        </button>
+      </article>
+    `).join("") : `
+      <div class="card empty vocabulary-empty-state">
+        <strong>Không tìm thấy từ vựng ở ${escapeHtml(level)}.</strong>
+        <span>Hãy xóa ô tìm kiếm, thử cấp độ khác hoặc nhập lại CSV trong trang Quản trị.</span>
+      </div>`;
+  } catch (error) {
+    console.error("Lỗi tải từ vựng:", error);
+    currentWords = [];
+    grid.innerHTML = `
+      <div class="card empty vocabulary-error-state">
+        <strong>Không tải được kho từ vựng.</strong>
+        <span>${escapeHtml(error.message || "Vui lòng thử lại.")}</span>
+        <button id="retryWordsBtn" class="btn btn-primary btn-small" type="button">Tải lại</button>
+      </div>`;
+    $("#retryWordsBtn")?.addEventListener("click", loadWords, { once: true });
+  }
 }
 
 async function loadPhrases() {
@@ -91,7 +151,7 @@ async function loadPhrases() {
   $("#phraseList").innerHTML = data.items.length ? data.items.map(p => `
     <div class="card phrase-item">
       <div><strong>${escapeHtml(p.phrase)}</strong><br><span>${escapeHtml(p.meaning)}</span></div>
-      <button class="ghost speak-with-label" type="button" onclick='speak(${JSON.stringify(p.phrase)})'>${iconSvg("volume-2")}<span>Nghe</span></button>
+      <button class="ghost" onclick='speak(${JSON.stringify(p.phrase)})'>🔊 Nghe</button>
     </div>
   `).join("") : `<div class="card empty">Chưa có cụm nói cho cấp này.</div>`;
 }
@@ -111,7 +171,12 @@ async function refreshUser() {
   $("#logoutBtn").classList.toggle("hidden", !logged);
   $("#userBadge").classList.toggle("hidden", !logged);
   $$(".admin-only").forEach(x => x.classList.toggle("hidden", currentUser?.role !== "admin"));
-  if (logged) $("#userBadge").textContent = `${currentUser.name} • ${currentUser.xp} XP`;
+  $$(".auth-only").forEach(x => x.classList.toggle("hidden", !logged));
+  if (logged) {
+    $("#userBadge").textContent = `${currentUser.name} • ${currentUser.xp} XP`;
+    renderProfile();
+    renderAccountProgress();
+  }
 }
 
 function openAuth(mode="login") {
@@ -130,12 +195,78 @@ async function submitAuth(form, endpoint) {
   const body = Object.fromEntries(new FormData(form).entries());
   try {
     await api(endpoint, {method:"POST", body:JSON.stringify(body)});
-    $("#authMessage").textContent = "Thành công!";
+    const isRegister = endpoint.includes("register");
+    $("#authMessage").textContent = isRegister ? "Đăng ký thành công! Đang mở trang cá nhân..." : "Đăng nhập thành công!";
     await refreshUser();
-    setTimeout(() => $("#authModal").classList.add("hidden"), 500);
+    setTimeout(() => {
+      $("#authModal").classList.add("hidden");
+      showView(isRegister ? "profile" : "home");
+    }, 450);
   } catch (e) {
     $("#authMessage").textContent = e.message;
   }
+}
+
+
+function getXpProgress(xpValue = 0) {
+  const totalXp = Math.max(0, Number(xpValue) || 0);
+  const xpPerLevel = 100;
+  const level = Math.floor(totalXp / xpPerLevel) + 1;
+  const currentXp = totalXp % xpPerLevel;
+  const percent = Math.min(100, Math.max(0, (currentXp / xpPerLevel) * 100));
+  return { totalXp, xpPerLevel, level, currentXp, percent };
+}
+
+function renderAccountProgress() {
+  if (!currentUser) return;
+  const progress = getXpProgress(currentUser.xp);
+
+  if (document.querySelector('#sidebarAccountLevel')) {
+    document.querySelector('#sidebarAccountLevel').textContent = `Lv.${progress.level}`;
+  }
+  if (document.querySelector('#sidebarAccountXp')) {
+    document.querySelector('#sidebarAccountXp').textContent = `${progress.currentXp} / ${progress.xpPerLevel} XP`;
+  }
+  if (document.querySelector('#sidebarAccountXpBar')) {
+    document.querySelector('#sidebarAccountXpBar').style.width = `${progress.percent}%`;
+  }
+  if (document.querySelector('#profileAccountLevel')) {
+    document.querySelector('#profileAccountLevel').textContent = `Lv.${progress.level}`;
+  }
+  if (document.querySelector('#profileXp')) {
+    document.querySelector('#profileXp').textContent = `${progress.totalXp} XP`;
+  }
+  if (document.querySelector('#profileXpDetail')) {
+    document.querySelector('#profileXpDetail').textContent = `${progress.currentXp} / ${progress.xpPerLevel} XP`;
+  }
+  if (document.querySelector('#profileXpBar')) {
+    document.querySelector('#profileXpBar').style.width = `${progress.percent}%`;
+  }
+}
+
+function profileInitials(name = "LingoPlay") {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  return (parts.slice(-2).map(part => part[0]).join("") || "LP").toUpperCase();
+}
+
+function renderProfile() {
+  if (!currentUser) return;
+  const language = $("#languageSelect")?.value || "english";
+  const level = $("#levelSelect")?.value || (language === "chinese" ? "HSK1" : "A1");
+  const roleText = currentUser.role === "admin" ? "Quản trị viên" : "Thành viên";
+  const languageText = language === "chinese" ? "Tiếng Trung" : "Tiếng Anh";
+
+  if ($("#profileAvatar")) $("#profileAvatar").textContent = profileInitials(currentUser.name);
+  if ($("#profileName")) $("#profileName").textContent = currentUser.name || "Người dùng LingoPlay";
+  if ($("#profileEmail")) $("#profileEmail").textContent = currentUser.email || "—";
+  if ($("#profileRoleBadge")) $("#profileRoleBadge").textContent = roleText;
+  if ($("#profileXp")) $("#profileXp").textContent = `${Number(currentUser.xp || 0)} XP`;
+  if ($("#profileFullName")) $("#profileFullName").textContent = currentUser.name || "—";
+  if ($("#profileEmailDetail")) $("#profileEmailDetail").textContent = currentUser.email || "—";
+  if ($("#profileRole")) $("#profileRole").textContent = roleText;
+  if ($("#profileLanguage")) $("#profileLanguage").textContent = languageText;
+  if ($("#profileLevel")) $("#profileLevel").textContent = level;
+  renderAccountProgress();
 }
 
 function newGame() {
@@ -300,9 +431,17 @@ if ($("#registerTab")) $("#registerTab").onclick = () => switchAuth("register");
 if ($("#loginForm")) $("#loginForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/login"); };
 if ($("#registerForm")) $("#registerForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/register"); };
 if ($("#logoutBtn")) $("#logoutBtn").onclick = async () => { await api("/api/auth/logout",{method:"POST"}); currentUser=null; await refreshUser(); showView("home"); };
-if ($("#languageSelect")) $("#languageSelect").onchange = () => { fillLevels(); loadWords(); };
+if ($("#userBadge")) $("#userBadge").onclick = () => showView("profile");
+if ($("#profileLearnBtn")) $("#profileLearnBtn").onclick = () => showView("learn");
+if ($("#profileLogoutBtn")) $("#profileLogoutBtn").onclick = async () => {
+  await api("/api/auth/logout", {method:"POST"});
+  currentUser = null;
+  await refreshUser();
+  showView("home");
+};
+if ($("#languageSelect")) $("#languageSelect").onchange = () => { fillLevels(); saveLearningPreference(); renderProfile(); loadWords(); };
 $$(".course-card").forEach(card => card.onclick = () => selectLanguage(card.dataset.language));
-if ($("#levelSelect")) $("#levelSelect").onchange = () => { renderLanguageUI($("#languageSelect").value); loadWords(); };
+if ($("#levelSelect")) $("#levelSelect").onchange = () => { saveLearningPreference(); renderLanguageUI($("#languageSelect").value); renderProfile(); loadWords(); };
 if ($("#searchBtn")) $("#searchBtn").onclick = loadWords;
 if ($("#searchInput")) $("#searchInput").onkeydown = e => { if (e.key === "Enter") loadWords(); };
 if ($("#startGameBtn")) $("#startGameBtn").onclick = newGame;
@@ -322,7 +461,7 @@ if ($("#wordForm")) $("#wordForm").onsubmit = async e => {
   } catch(err) { $("#adminMessage").textContent = err.message; }
 };
 
-if ($("#languageSelect") && $("#levelSelect")) fillLevels();
+if ($("#languageSelect") && $("#levelSelect")) restoreLearningPreference();
 refreshUser()
   .then(() => {
     if ($("#languageSelect") && $("#levelSelect") && $("#wordGrid")) return loadWords();
@@ -401,20 +540,33 @@ const LOCAL_ICONS = {
   "volume-2": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/>',
   "plus": '<path d="M12 5v14M5 12h14"/>',
   "upload": '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
-  "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
+  "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  "user-round": '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  "award": '<circle cx="12" cy="8" r="5"/><path d="m8.5 12.5-1 8 4.5-2.5 4.5 2.5-1-8"/>'
 };
 
-function iconSvg(name, className = "local-icon") {
-  const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
-  return `<svg class="${className}" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-}
-
-function refreshIcons(root = document) {
-  root.querySelectorAll("[data-lucide]").forEach(node => {
+function refreshIcons() {
+  document.querySelectorAll("[data-lucide]").forEach(node => {
     const name = node.getAttribute("data-lucide");
-    const wrapper = document.createElement("span");
-    wrapper.innerHTML = iconSvg(name);
-    const svg = wrapper.firstElementChild;
+    const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
+
+    const svg = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    );
+
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "24");
+    svg.setAttribute("height", "24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+
+    svg.innerHTML = body;
     node.replaceWith(svg);
   });
 }
@@ -507,6 +659,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const quickLookup = event.target.closest(".quick-lookup, .quick-lookup-box");
+  if (quickLookup) {
+    event.preventDefault();
+    showView("lookup");
+    setTimeout(() => document.getElementById("lookupInput")?.focus(), 100);
+  }
 });
 
 // Các nút cấp độ ở trang chủ cũng điều hướng đúng tới kho học.
@@ -545,12 +703,11 @@ async function runQuickLookup() {
   result.innerHTML = "Đang tra từ...";
 
   try {
-    const data = await api(`/api/dictionary?word=${encodeURIComponent(word)}`);
-    const item = data?.result || data;
+    const data = await api(`/api/lookup?word=${encodeURIComponent(word)}`);
+    const item = data?.word || data?.result || data;
     const displayWord = item?.word || word;
-    const pronunciation = item?.phonetic || item?.pronunciation || item?.local_items?.[0]?.pronunciation || "";
-    const first = firstDefinition(item);
-    const meaning = item?.translation || item?.local_items?.[0]?.meaning || first?.definition || "Chưa có nghĩa tiếng Việt.";
+    const pronunciation = item?.pronunciation || item?.phonetic || "";
+    const meaning = item?.meaning || item?.vietnamese || item?.translation || "Chưa có nghĩa tiếng Việt.";
 
     result.innerHTML = `
       <b>${escapeHtml(displayWord)}</b>

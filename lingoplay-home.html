@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=200">
+  <link rel="stylesheet" href="./style.css?v=210">
 </head>
 <body>
   <div class="app-frame">
@@ -29,7 +29,7 @@
         <button class="language-switch active" data-quick-language="english"><span>🇬🇧</span> Tiếng Anh</button>
         <button class="language-switch" data-quick-language="chinese"><span>🇨🇳</span> Tiếng Trung</button>
         <button id="themeToggle" class="icon-button" aria-label="Đổi giao diện"><i data-lucide="moon"></i></button>
-        <div id="userBadge" class="user-pill hidden"></div>
+        <button id="userBadge" class="user-pill hidden" type="button" aria-label="Mở thông tin cá nhân"></button>
         <button id="authBtn" class="btn btn-primary btn-small">Đăng nhập</button>
         <button id="logoutBtn" class="btn btn-ghost btn-small hidden">Đăng xuất</button>
       </div>
@@ -42,13 +42,14 @@
         <button class="nav-btn" data-view="phrases"><i data-lucide="messages-square"></i><span>Cụm nói thực chiến</span></button>
         <button class="nav-btn" data-view="game"><i data-lucide="gamepad-2"></i><span>Trò chơi</span></button>
         <button class="nav-btn" data-view="lookup"><i data-lucide="languages"></i><span>Tra từ & Dịch</span></button>
+        <button class="nav-btn auth-only hidden" data-view="profile"><i data-lucide="user-round"></i><span>Thông tin cá nhân</span></button>
         <button class="nav-btn admin-only hidden" data-view="admin"><i data-lucide="shield-cog"></i><span>Quản trị</span></button>
       </nav>
 
       <div class="streak-card">
         <div class="streak-head"><span>🔥 Chuỗi học tập</span><strong>7 ngày</strong></div>
         <div class="streak-days"><span class="done">T2</span><span class="done">T3</span><span class="done">T4</span><span class="done">T5</span><span class="done">T6</span><span>T7</span><span>CN</span></div>
-        <div class="level-box"><small>Cấp độ của bạn</small><strong>Lv.12</strong><div class="progress"><i style="width:64%"></i></div><span>320 / 500 XP</span></div>
+        <div class="level-box"><small>Cấp độ tài khoản</small><strong id="sidebarAccountLevel">Lv.1</strong><div class="progress"><i id="sidebarAccountXpBar" style="width:0%"></i></div><span id="sidebarAccountXp">0 / 100 XP</span></div>
       </div>
 
       <div class="upgrade-card">
@@ -151,10 +152,10 @@
 
             <section class="side-card today-words">
               <div class="side-card-title"><h3>Từ vựng hôm nay</h3><a data-go="learn">Xem tất cả →</a></div>
-              <div class="today-word"><span>🧳</span><div><b>journey</b><small>/ˈdʒɜːni/ · cuộc hành trình</small></div><button class="icon-only" type="button" onclick="speak('journey')"><i data-lucide="volume-2"></i></button></div>
-              <div class="today-word"><span>📖</span><div><b>学习</b><small>xuéxí · học tập</small></div><button class="icon-only" type="button" onclick="speak('学习')"><i data-lucide="volume-2"></i></button></div>
-              <div class="today-word"><span>🍜</span><div><b>delicious</b><small>/dɪˈlɪʃəs/ · ngon</small></div><button class="icon-only" type="button" onclick="speak('delicious')"><i data-lucide="volume-2"></i></button></div>
-              <div class="today-word"><span>⭐</span><div><b>important</b><small>/ɪmˈpɔːtənt/ · quan trọng</small></div><button class="icon-only" type="button" onclick="speak('important')"><i data-lucide="volume-2"></i></button></div>
+              <div class="today-word"><span>🧳</span><div><b>journey</b><small>/ˈdʒɜːni/ · cuộc hành trình</small></div><button onclick="speak('journey')"><i data-lucide="volume-2"></i></button></div>
+              <div class="today-word"><span>📖</span><div><b>学习</b><small>xuéxí · học tập</small></div><button onclick="speak('学习')"><i data-lucide="volume-2"></i></button></div>
+              <div class="today-word"><span>🍜</span><div><b>delicious</b><small>/dɪˈlɪʃəs/ · ngon</small></div><button onclick="speak('delicious')"><i data-lucide="volume-2"></i></button></div>
+              <div class="today-word"><span>⭐</span><div><b>important</b><small>/ɪmˈpɔːtənt/ · quan trọng</small></div><button onclick="speak('important')"><i data-lucide="volume-2"></i></button></div>
             </section>
 
             <section class="side-card quick-lookup">
@@ -162,7 +163,7 @@
       <div class="quick-lookup-box">
         <i data-lucide="search"></i>
         <input id="quickLookupInput" placeholder="Nhập từ tiếng Anh..." />
-        <button id="quickLookupBtn" class="icon-only" type="button" aria-label="Tra nhanh"><i data-lucide="arrow-right"></i></button>
+        <button id="quickLookupBtn" type="button" aria-label="Tra nhanh"><i data-lucide="arrow-right"></i></button>
       </div>
       <div id="quickLookupResult" class="mini-result">
         <b>travel</b><small>/ˈtrævəl/</small>
@@ -222,6 +223,35 @@
         </div>
       </section>
 
+      <section id="profileView" class="view">
+        <div class="view-header"><div><span class="section-kicker">TÀI KHOẢN CỦA BẠN</span><h2>Thông tin người dùng</h2><p>Xem thông tin cơ bản và tiến độ học tập của tài khoản.</p></div></div>
+        <div class="profile-layout">
+          <section class="profile-summary surface-card">
+            <div id="profileAvatar" class="profile-avatar">LP</div>
+            <h3 id="profileName">Người dùng LingoPlay</h3>
+            <p id="profileEmail">Chưa đăng nhập</p>
+            <span id="profileRoleBadge" class="profile-role-badge">Thành viên</span>
+            <div class="profile-xp-box"><span>Điểm kinh nghiệm</span><strong id="profileXp">0 XP</strong><div class="progress profile-xp-progress"><i id="profileXpBar" style="width:0%"></i></div><small id="profileXpDetail">0 / 100 XP</small></div>
+          </section>
+
+          <section class="profile-details surface-card">
+            <div class="profile-section-title"><i data-lucide="user-round"></i><div><h3>Thông tin cơ bản</h3><p>Thông tin được lấy từ tài khoản đã đăng ký.</p></div></div>
+            <div class="profile-info-grid">
+              <div class="profile-info-item"><span>Họ và tên</span><strong id="profileFullName">—</strong></div>
+              <div class="profile-info-item"><span>Email</span><strong id="profileEmailDetail">—</strong></div>
+              <div class="profile-info-item"><span>Loại tài khoản</span><strong id="profileRole">Thành viên</strong></div>
+              <div class="profile-info-item"><span>Trạng thái</span><strong class="profile-status">Đang hoạt động</strong></div>
+              <div class="profile-info-item"><span>Ngôn ngữ đang học</span><strong id="profileLanguage">Tiếng Anh</strong></div>
+              <div class="profile-info-item"><span>Cấp độ tài khoản</span><strong id="profileAccountLevel">Lv.1</strong></div><div class="profile-info-item"><span>Cấp độ đang học</span><strong id="profileLevel">A1</strong></div>
+            </div>
+            <div class="profile-actions">
+              <button id="profileLearnBtn" class="btn btn-primary" type="button"><i data-lucide="book-open"></i> Tiếp tục học</button>
+              <button id="profileLogoutBtn" class="btn btn-secondary" type="button">Đăng xuất</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section id="adminView" class="view">
         <div class="view-header"><div><span class="section-kicker">TRUNG TÂM QUẢN TRỊ</span><h2>Quản lý hệ thống</h2><p>Theo dõi dữ liệu và bổ sung nội dung học tập.</p></div></div>
         <div class="admin-stats">
@@ -270,6 +300,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=200"></script>
+  <script src="./app.js?v=210"></script>
 </body>
 </html>
