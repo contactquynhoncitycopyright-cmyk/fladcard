@@ -1679,3 +1679,217 @@ svg,
     box-shadow: 0 4px 14px rgba(0,0,0,.05) !important;
   }
 }
+
+/* =========================================================
+   LINGOPLAY BRIGHT YOUTHFUL THEME 2026
+   Sáng, trẻ trung, dịu mắt + căn giữa icon mọi thiết bị
+   ========================================================= */
+:root,
+body.dark{
+  --bg:#f7f9ff;
+  --surface:#ffffff;
+  --surface-2:#f1f4ff;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --line:#e4e8f2;
+  --primary:#6c5ce7;
+  --primary-2:#4f8cff;
+  --purple:#6c5ce7;
+  --shadow:0 12px 32px rgba(76,86,140,.09);
+}
+
+html,body,body.dark{
+  background:linear-gradient(180deg,#fbfcff 0%,#f5f8ff 100%)!important;
+  color:var(--text)!important;
+}
+
+.topbar,.sidebar,
+body.dark .topbar,body.dark .sidebar{
+  background:rgba(255,255,255,.96)!important;
+  color:var(--text)!important;
+  border-color:#e4e8f2!important;
+}
+.topbar{box-shadow:0 5px 22px rgba(66,76,125,.06)!important}
+.sidebar{box-shadow:5px 0 22px rgba(66,76,125,.045)!important}
+
+.brand-mark,
+.btn-primary,
+.primary-btn,
+.action-btn,
+.cta-btn,
+.static-levels button.active,
+.static-levels.chinese button.active{
+  background:linear-gradient(135deg,#745cf3,#4f8cff)!important;
+  color:#fff!important;
+  border-color:transparent!important;
+  box-shadow:0 9px 22px rgba(99,91,226,.22)!important;
+}
+.brand-name,.section-kicker,.section-heading small,
+.side-card-title a,.mini-result small,.topic-count,
+.level-summary button,.language-switch.active{
+  color:#6553df!important;
+}
+
+.global-search,input,textarea,select,.form-control,
+body.dark .global-search,body.dark input,body.dark textarea,body.dark select{
+  background:#fff!important;
+  color:#243044!important;
+  border-color:#dfe5f0!important;
+}
+input:focus,textarea:focus,select:focus,.form-control:focus{
+  border-color:#7c6cf0!important;
+  box-shadow:0 0 0 4px rgba(108,92,231,.11)!important;
+}
+
+.nav-btn,.menu-item,.sidebar a{color:#475569!important}
+.nav-btn:hover,.nav-btn.active,.menu-item:hover,.menu-item.active,.sidebar a:hover{
+  background:linear-gradient(90deg,#eeeaff,#f4f8ff)!important;
+  color:#5f4bd8!important;
+  border-color:#ddd6ff!important;
+}
+.nav-btn.active{box-shadow:inset 3px 0 0 #6c5ce7!important}
+
+.surface-card,.side-card,.level-panel,.recent-strip,.panel,.card,
+.word-card,.phrase-card,.topic-card,.review-card,.game-card,
+.profile-card,.stat-card,.news-card,.ranking-card,.modal-content,.auth-card,
+body.dark .surface-card,body.dark .side-card,body.dark .panel,body.dark .card{
+  background:#fff!important;
+  color:#253047!important;
+  border-color:#e3e8f2!important;
+  box-shadow:0 10px 28px rgba(71,82,130,.075)!important;
+}
+
+/* Các thẻ tiến độ có pastel khác nhau, sáng nhưng không chói */
+.learning-card{color:#253047!important;border:1px solid transparent!important;box-shadow:0 10px 24px rgba(67,78,124,.07)!important}
+.learning-card.blue{background:linear-gradient(145deg,#edf6ff,#f8fbff)!important;border-color:#d6eaff!important}
+.learning-card.pink{background:linear-gradient(145deg,#fff0f7,#fff9fc)!important;border-color:#ffdce9!important}
+.learning-card.green{background:linear-gradient(145deg,#ecfbf5,#f8fffc)!important;border-color:#d3f2e4!important}
+.learning-card.orange{background:linear-gradient(145deg,#fff5e9,#fffaf4)!important;border-color:#ffe3c2!important}
+.learning-card:hover{transform:translateY(-4px)!important;box-shadow:0 16px 32px rgba(72,83,135,.12)!important}
+.learning-card h3{color:#26324a!important}.learning-card p{color:#657087!important}
+.learning-card.blue small{color:#3478d4!important}.learning-card.pink small{color:#cf4f86!important}
+.learning-card.green small{color:#248b68!important}.learning-card.orange small{color:#c66d20!important}
+
+.btn,.btn-secondary,.btn-soft,.btn-ghost,.btn-light,.filter-btn,.tab-btn{
+  border-radius:13px!important;
+}
+.btn-secondary,.btn-soft,.btn-ghost,.btn-light,.filter-btn,.tab-btn,
+.icon-btn,.icon-button,.language-switch{
+  background:#f4f6fc!important;
+  color:#46526a!important;
+  border-color:#dfe4ef!important;
+}
+.btn-secondary:hover,.btn-soft:hover,.btn-ghost:hover,.btn-light:hover,
+.filter-btn:hover,.tab-btn:hover,.tab-btn.active,.icon-btn:hover,.icon-button:hover{
+  background:#ece9ff!important;
+  color:#5f4bd8!important;
+  border-color:#cfc7ff!important;
+}
+
+.progress,.progress-track,.progress-bar-bg{background:#e9edf5!important}
+.progress i,.progress-fill,.progress-bar,.xp-fill,.progress.red i{
+  background:linear-gradient(90deg,#745cf3,#4f8cff)!important;
+}
+
+.badge,.tag,.level-badge,.language-badge,.status-badge{
+  background:#f0edff!important;color:#5f4bd8!important;border-color:#ddd6ff!important;
+}
+
+.feature-icon.purple,.purple{background:#eeeaff!important;color:#6c5ce7!important}
+.feature-icon.cyan,.cyan{background:#e5f8ff!important;color:#1687a7!important}
+.feature-icon.violet,.violet{background:#eeedff!important;color:#6454df!important}
+.feature-icon.pink,.pink{background:#fff0f7!important;color:#cf4f86!important}
+.round-icon.blue{background:#eaf3ff!important;color:#3e7ed6!important}
+.round-icon.red{background:#fff0f1!important;color:#d95764!important}
+
+.welcome-hero,body.dark .welcome-hero{
+  border:1px solid #dfe5f1!important;
+  box-shadow:0 14px 36px rgba(68,78,130,.10)!important;
+}
+.welcome-hero::before,body.dark .welcome-hero::before{
+  background:linear-gradient(90deg,rgba(255,255,255,.56),rgba(245,248,255,.30))!important;
+}
+.hero-overlay{background:rgba(255,255,255,.82)!important;color:#263047!important;border-color:rgba(255,255,255,.9)!important}
+.language-choice{background:rgba(255,255,255,.95)!important;color:#28344a!important;border-color:#e0e5f0!important}
+.language-choice:hover{border-color:#c9c1ff!important;box-shadow:0 12px 28px rgba(108,92,231,.13)!important}
+
+/* Hiệu ứng nền vẫn có nhưng dịu */
+.fx-snowflake,.snowflake,.effect-particle{opacity:.38!important}
+.fx-dragon,.flying-dragon,.dragon-effect{opacity:.28!important}
+
+/* =========================================================
+   FIX ICON CENTER — desktop + mobile
+   ========================================================= */
+svg,.lucide,.local-lucide-icon{
+  display:block!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  transform-origin:center!important;
+  vertical-align:middle!important;
+}
+
+/* Nút chỉ có icon: căn chính giữa tuyệt đối */
+.icon-button,.icon-btn,.sound-toggle,#mobileMenuBtn,
+.today-word button,.quick-lookup-box button,.global-search button,
+.audio-btn,.sound-btn,.speak-btn,.pronunciation-btn,.lookup-btn,.search-btn,.arrow-btn{
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  line-height:0!important;
+  text-align:center!important;
+  overflow:visible!important;
+}
+.icon-button>svg,.icon-btn>svg,.sound-toggle>svg,#mobileMenuBtn>svg,
+.today-word button>svg,.quick-lookup-box button>svg,.global-search button>svg,
+.audio-btn>svg,.sound-btn>svg,.speak-btn>svg,.pronunciation-btn>svg,
+.lookup-btn>svg,.search-btn>svg,.arrow-btn>svg,
+.icon-button>.local-lucide-icon,.icon-btn>.local-lucide-icon,.sound-toggle>.local-lucide-icon,
+#mobileMenuBtn>.local-lucide-icon,.today-word button>.local-lucide-icon,
+.quick-lookup-box button>.local-lucide-icon,.global-search button>.local-lucide-icon{
+  position:absolute!important;
+  inset:50% auto auto 50%!important;
+  transform:translate(-50%,-50%)!important;
+  margin:0!important;
+}
+
+/* Nút có chữ + icon */
+.btn,.nav-btn,.language-choice,.level-summary button,.fx-option,
+.panel-heading,.profile-section-title,.feature-row article{
+  align-items:center!important;
+}
+.btn>svg,.nav-btn>svg,.language-choice>svg,.level-summary button>svg,.fx-option>svg,
+.btn>.local-lucide-icon,.nav-btn>.local-lucide-icon{
+  position:static!important;
+  transform:none!important;
+  align-self:center!important;
+  margin:0!important;
+}
+
+.card-emoji,.feature-icon,.round-icon,.panel-icon,.brand-mark,.today-word>span{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  line-height:0!important;
+}
+.card-emoji svg,.feature-icon svg,.round-icon svg,.panel-icon svg,.brand-mark svg,.today-word>span svg{
+  display:block!important;margin:auto!important;
+}
+
+@media(max-width:900px){
+  .topbar{gap:10px!important;padding-inline:12px!important}
+  .icon-button,.sound-toggle,#mobileMenuBtn{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
+  .icon-button>svg,.sound-toggle>svg,#mobileMenuBtn>svg,
+  .icon-button>.local-lucide-icon,.sound-toggle>.local-lucide-icon,#mobileMenuBtn>.local-lucide-icon{
+    width:21px!important;height:21px!important;
+  }
+  .learning-card{min-height:205px!important}
+}
+
+@media(max-width:560px){
+  .learning-card{padding:15px!important;border-radius:16px!important}
+  .btn{min-height:44px!important}
+  .card-emoji{width:38px!important;height:38px!important}
+  .today-word button,.quick-lookup-box button{width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important}
+}
