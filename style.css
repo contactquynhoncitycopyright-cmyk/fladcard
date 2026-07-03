@@ -837,3 +837,128 @@ body.dark .profile-role-badge{background:#241d3d}
 .profile-xp-progress{width:100%;margin-top:4px}
 .profile-xp-box small{color:var(--muted);font-size:12px}
 #sidebarAccountLevel,#profileAccountLevel{font-variant-numeric:tabular-nums}
+
+/* =========================================================
+   FIX CUỐI: HEADER ỔN ĐỊNH TRÊN DESKTOP + MOBILE
+   Không dùng CSS Grid cho topbar để tránh các nút tràn sang trái.
+========================================================= */
+.topbar{
+  height:78px !important;
+  display:flex !important;
+  grid-template-columns:none !important;
+  align-items:center !important;
+  gap:16px !important;
+  padding:0 22px !important;
+  overflow:visible !important;
+}
+
+#mobileMenuBtn{
+  flex:0 0 42px !important;
+}
+
+.brand{
+  order:1 !important;
+  flex:0 0 220px !important;
+  min-width:220px !important;
+  max-width:220px !important;
+}
+
+.global-search{
+  order:2 !important;
+  flex:1 1 420px !important;
+  width:auto !important;
+  min-width:220px !important;
+  max-width:none !important;
+  margin:0 !important;
+  justify-self:auto !important;
+}
+
+.top-actions{
+  order:3 !important;
+  position:static !important;
+  inset:auto !important;
+  transform:none !important;
+  margin-left:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  flex:0 0 auto !important;
+  flex-wrap:nowrap !important;
+  gap:8px !important;
+  max-width:none !important;
+  overflow:visible !important;
+}
+
+.top-actions > *{
+  flex:0 0 auto !important;
+}
+
+.language-switch,
+#authBtn,
+#logoutBtn,
+.user-pill{
+  position:static !important;
+  transform:none !important;
+  white-space:nowrap !important;
+}
+
+/* Màn hình laptop: ẩn nút chuyển ngôn ngữ trên header để không chen chúc.
+   Người dùng vẫn đổi ngôn ngữ trong nội dung trang. */
+@media (max-width:1350px){
+  .top-actions .language-switch{display:none !important}
+  .brand{flex-basis:190px !important;min-width:190px !important;max-width:190px !important}
+}
+
+@media (max-width:900px){
+  .topbar{
+    height:78px !important;
+    padding:0 12px !important;
+    gap:10px !important;
+  }
+  #mobileMenuBtn{
+    display:inline-flex !important;
+    order:0 !important;
+    width:48px !important;
+    height:48px !important;
+    min-width:48px !important;
+    flex-basis:48px !important;
+  }
+  .brand{
+    order:1 !important;
+    flex:0 1 auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+  }
+  .brand-name{display:none !important}
+  .global-search{display:none !important}
+  .top-actions{
+    order:2 !important;
+    margin-left:auto !important;
+    gap:8px !important;
+  }
+  .top-actions .language-switch,
+  .top-actions .user-pill{display:none !important}
+  .icon-button{
+    width:48px !important;
+    height:48px !important;
+    min-width:48px !important;
+  }
+  #authBtn,#logoutBtn{
+    min-height:48px !important;
+    padding:0 16px !important;
+  }
+  .sidebar{top:78px !important}
+  .page-shell{padding-top:96px !important}
+}
+
+@media (max-width:430px){
+  .topbar{padding:0 8px !important;gap:7px !important}
+  #mobileMenuBtn,.icon-button{
+    width:44px !important;height:44px !important;min-width:44px !important;
+  }
+  #authBtn,#logoutBtn{
+    min-height:44px !important;
+    padding:0 12px !important;
+    font-size:14px !important;
+  }
+}
