@@ -144,7 +144,7 @@ async function loadWords() {
         <p><b>${escapeHtml(w.meaning || "Chưa có nghĩa")}</b></p>
         <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
         <div class="word-actions">
-          <button class="speak" type="button" data-speak=${JSON.stringify(w.word || "")} aria-label="Nghe phát âm"><span aria-hidden="true">🔊</span></button>
+          <button class="speak" type="button" data-speak=${JSON.stringify(w.word || "")} aria-label="Nghe phát âm"><i data-lucide="volume-2"></i></button>
           <button class="learned-btn" type="button" data-learn-word="${w.id}"><i data-lucide="check-circle-2"></i> Đã học</button>
         </div>
       </article>
@@ -173,7 +173,7 @@ async function loadPhrases() {
   $("#phraseList").innerHTML = data.items.length ? data.items.map(p => `
     <div class="card phrase-item">
       <div><strong>${escapeHtml(p.phrase)}</strong><br><span>${escapeHtml(p.meaning)}</span></div>
-      <button class="ghost" type="button" data-speak=${JSON.stringify(p.phrase)}>🔊 Nghe</button>
+      <button class="ghost" type="button" data-speak=${JSON.stringify(p.phrase)}><i data-lucide="volume-2"></i> Nghe</button>
     </div>
   `).join("") : `<div class="card empty">Chưa có cụm nói cho cấp này.</div>`;
 }
@@ -783,7 +783,7 @@ function renderLookup(result) {
     <div class="lookup-head">
       <div><h3 class="lookup-word">${escapeHtml(result.word)}</h3><div class="lookup-phonetic">${escapeHtml(result.phonetic || "Chưa có phiên âm")}</div></div>
       <div class="lookup-actions">
-        <button class="btn btn-soft" id="lookupSpeakBtn">🔊 Nghe</button>
+        <button class="btn btn-soft" id="lookupSpeakBtn"><i data-lucide="volume-2"></i> Nghe</button>
         <button class="btn btn-primary" id="saveLookupBtn">Lưu vào kho học</button>
       </div>
     </div>
@@ -1475,3 +1475,60 @@ $('#topicSearch')?.addEventListener('input',()=>{clearTimeout(topicSearchTimer);
   applyMode(currentMode);
   if(typeof refreshIcons === 'function') refreshIcons();
 })();
+
+
+// ===== Major completion pack: lessons, streaks, badges, leaderboard, backup, legal =====
+function fillLessonLevels(){
+  const lang=document.querySelector('#lessonLanguage')?.value||'english'; const sel=document.querySelector('#lessonLevel'); if(!sel)return;
+  const levels=lang==='chinese'?['HSK1','HSK2','HSK3','HSK4','HSK5','HSK6']:['A1','A2','B1','B2','C1','C2']; sel.innerHTML=levels.map(x=>`<option>${x}</option>`).join('');
+}
+async function loadDashboardSummary(){
+  if(!currentUser)return; try{const d=await api('/api/dashboard/summary');
+    const st=document.querySelector('#liveStreak'); if(st)st.textContent=`${d.streak} ngày`;
+    const bg=document.querySelector('#badgeGrid'); if(bg)bg.innerHTML=(d.badges||[]).map(b=>`<article class="badge-card"><i data-lucide="${escapeAttribute(b.icon)}"></i><div><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.description)}</small></div></article>`).join('')||'<p>Hãy hoàn thành bài học đầu tiên để nhận huy hiệu.</p>'; refreshIcons();
+    if(document.querySelector('#dailyGoalInput'))document.querySelector('#dailyGoalInput').value=d.daily_goal_minutes||10;
+  }catch(e){console.warn(e)}
+}
+async function loadLessons(){
+  if(!currentUser)return openAuth('login'); const lang=document.querySelector('#lessonLanguage').value,level=document.querySelector('#lessonLevel').value;
+  const d=await api(`/api/lessons?language=${lang}&level=${level}`); const grid=document.querySelector('#lessonGrid');
+  grid.innerHTML=d.items.map(x=>`<button class="lesson-node ${x.completed?'done':''} ${!x.unlocked?'locked':''}" data-lesson="${x.number}" ${!x.unlocked?'disabled':''}><span>${x.completed?'✓':x.number}</span><div><b>Bài ${x.number}: ${escapeHtml(x.title)}</b><small>${x.word_count} từ · Điểm tốt nhất ${x.best_score}%</small></div><i data-lucide="${x.unlocked?'chevron-right':'lock'}"></i></button>`).join('');
+  grid.querySelectorAll('[data-lesson]').forEach(b=>b.onclick=()=>openLesson(Number(b.dataset.lesson))); refreshIcons();
+}
+async function openLesson(number){
+  const lang=document.querySelector('#lessonLanguage').value,level=document.querySelector('#lessonLevel').value; const d=await api(`/api/lessons/${number}?language=${lang}&level=${level}`);
+  const box=document.querySelector('#lessonPlayer'); box.classList.remove('hidden'); box.innerHTML=`<div class="lesson-player-head"><h3>Bài ${number}: ${escapeHtml(d.title)}</h3><button class="btn btn-outline" id="closeLessonPlayer">Đóng</button></div><div class="lesson-word-list">${d.items.map(w=>`<article><button data-speak="${escapeAttribute(w.word)}"><i data-lucide="volume-2"></i></button><div><b>${escapeHtml(w.word)}</b><small>${escapeHtml(w.pronunciation||'')}</small><p>${escapeHtml(w.meaning)}</p></div></article>`).join('')}</div><div class="lesson-finish"><label>Điểm tự đánh giá (0–100)</label><input id="lessonScore" type="number" min="0" max="100" value="80"><button id="completeLessonBtn" class="btn btn-primary">Hoàn thành bài</button><span id="lessonResult"></span></div>`;
+  box.querySelector('#closeLessonPlayer').onclick=()=>box.classList.add('hidden'); box.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak));
+  box.querySelector('#completeLessonBtn').onclick=async()=>{const score=Number(box.querySelector('#lessonScore').value||0);const r=await api(`/api/lessons/${number}/complete`,{method:'POST',body:JSON.stringify({language:lang,level,score})});box.querySelector('#lessonResult').textContent=r.completed?`Đã hoàn thành! +${r.earned_xp} XP`:'Cần ít nhất 60 điểm.';await loadLessons();await refreshUser();await loadDashboardSummary();}; refreshIcons(); box.scrollIntoView({behavior:'smooth'});
+}
+async function loadLeaderboard(){
+  const period=document.querySelector('#leaderboardPeriod')?.value||'week'; const d=await api(`/api/leaderboard?period=${period}`); const box=document.querySelector('#leaderboardList');
+  box.innerHTML=d.items.map(x=>`<article class="leader-row ${x.rank<=3?'top':''}"><span class="rank">${x.rank}</span><span class="avatar">${escapeHtml((x.name||'?').slice(0,1).toUpperCase())}</span><b>${escapeHtml(x.name)}</b><strong>${x.xp} XP</strong></article>`).join('')||'<p>Chưa có dữ liệu XP trong kỳ này.</p>';
+}
+async function saveProfileSettings(){
+  const name=document.querySelector('#profileNameInput').value.trim(),daily_goal_minutes=Number(document.querySelector('#dailyGoalInput').value||10);
+  await api('/api/profile',{method:'PATCH',body:JSON.stringify({name,daily_goal_minutes})}); await refreshUser(); await loadDashboardSummary(); alert('Đã lưu hồ sơ.');
+}
+function downloadUrl(url){const a=document.createElement('a');a.href=url;a.target='_blank';document.body.appendChild(a);a.click();a.remove()}
+async function loadAudit(){const d=await api('/api/admin/audit');const box=document.querySelector('#auditList');box.classList.remove('hidden');box.innerHTML=d.items.map(x=>`<article><b>${escapeHtml(x.action)}</b><small>${escapeHtml(x.created_at)} · User ${x.user_id??'-'}</small><p>${escapeHtml(x.detail||'')}</p></article>`).join('')}
+const LEGAL={
+ privacy:`<h2>Chính sách quyền riêng tư</h2><p>LingoPlay chỉ thu thập thông tin cần thiết để tạo tài khoản, lưu tiến độ và bảo vệ hệ thống. Mật khẩu được lưu dưới dạng băm, không lưu dạng văn bản.</p><h3>Dữ liệu được lưu</h3><p>Tên, email, tiến độ học, XP, từ đã học và nhật ký bảo mật cần thiết. Người dùng có thể tải dữ liệu của mình trong trang cá nhân.</p><h3>Chia sẻ dữ liệu</h3><p>Không bán dữ liệu người dùng. Dịch vụ ngoài chỉ nhận phần dữ liệu tối thiểu cần thiết cho dịch thuật hoặc gửi email.</p>`,
+ terms:`<h2>Điều khoản sử dụng</h2><p>Người dùng không được phá hoại, spam, gian lận XP, truy cập trái phép hoặc đăng nội dung vi phạm pháp luật. Tài khoản vi phạm có thể bị khóa.</p><p>Nội dung học mang tính hỗ trợ và có thể có sai sót; hãy báo cho quản trị viên để chỉnh sửa.</p>`,
+ cookies:`<h2>Chính sách cookie</h2><p>Website dùng cookie phiên đăng nhập an toàn và bộ nhớ cục bộ để ghi nhớ lựa chọn giao diện, âm thanh và hiệu ứng. Không dùng cookie quảng cáo.</p>`,
+ support:`<h2>Hỗ trợ</h2><p>Khi gặp lỗi, hãy gửi ảnh màn hình, thời gian xảy ra và thao tác trước khi lỗi. Không gửi mật khẩu hoặc mã đặt lại mật khẩu cho bất kỳ ai.</p>`
+};
+function openLegal(key){const m=document.querySelector('#legalModal');document.querySelector('#legalContent').innerHTML=LEGAL[key]||'';m.classList.remove('hidden')}
+
+if(document.querySelector('#lessonLanguage')){fillLessonLevels();document.querySelector('#lessonLanguage').onchange=fillLessonLevels}
+if(document.querySelector('#loadLessonsBtn'))document.querySelector('#loadLessonsBtn').onclick=loadLessons;
+if(document.querySelector('#refreshLeaderboardBtn'))document.querySelector('#refreshLeaderboardBtn').onclick=loadLeaderboard;
+if(document.querySelector('#leaderboardPeriod'))document.querySelector('#leaderboardPeriod').onchange=loadLeaderboard;
+if(document.querySelector('#saveProfileBtn'))document.querySelector('#saveProfileBtn').onclick=saveProfileSettings;
+if(document.querySelector('#exportMyDataBtn'))document.querySelector('#exportMyDataBtn').onclick=()=>downloadUrl('/api/profile/export.json');
+if(document.querySelector('#downloadBackupBtn'))document.querySelector('#downloadBackupBtn').onclick=()=>downloadUrl('/api/admin/backup.json');
+if(document.querySelector('#loadAuditBtn'))document.querySelector('#loadAuditBtn').onclick=loadAudit;
+document.querySelectorAll('[data-legal]').forEach(b=>b.onclick=()=>openLegal(b.dataset.legal));
+if(document.querySelector('#closeLegalModal'))document.querySelector('#closeLegalModal').onclick=()=>document.querySelector('#legalModal').classList.add('hidden');
+
+const _oldShowView=showView; showView=function(name){_oldShowView(name);if(name==='lessons')loadLessons().catch(e=>console.warn(e));if(name==='leaderboard')loadLeaderboard().catch(e=>console.warn(e));if(name==='profile'){if(currentUser&&document.querySelector('#profileNameInput'))document.querySelector('#profileNameInput').value=currentUser.name||'';loadDashboardSummary();}};
+setTimeout(()=>{if(currentUser)loadDashboardSummary()},1200);

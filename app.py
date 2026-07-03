@@ -114,6 +114,41 @@ class GameChallenge(db.Model):
     used=db.Column(db.Boolean, nullable=False, default=False)
 
 
+class DailyActivity(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    activity_date=db.Column(db.Date, nullable=False, index=True)
+    seconds=db.Column(db.Integer, nullable=False, default=0)
+    lessons=db.Column(db.Integer, nullable=False, default=0)
+    xp_earned=db.Column(db.Integer, nullable=False, default=0)
+    __table_args__=(db.UniqueConstraint('user_id','activity_date',name='uq_daily_activity_user_date'),)
+
+class LessonProgress(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    language=db.Column(db.String(20), nullable=False)
+    level=db.Column(db.String(20), nullable=False)
+    lesson_number=db.Column(db.Integer, nullable=False)
+    best_score=db.Column(db.Integer, nullable=False, default=0)
+    completed=db.Column(db.Boolean, nullable=False, default=False)
+    attempts=db.Column(db.Integer, nullable=False, default=0)
+    updated_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    __table_args__=(db.UniqueConstraint('user_id','language','level','lesson_number',name='uq_lesson_progress'),)
+
+class BadgeAward(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    badge_key=db.Column(db.String(60), nullable=False)
+    awarded_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    __table_args__=(db.UniqueConstraint('user_id','badge_key',name='uq_badge_award'),)
+
+class ProfileSetting(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    user_id=db.Column(db.Integer, unique=True, nullable=False, index=True)
+    daily_goal_minutes=db.Column(db.Integer, nullable=False, default=10)
+    preferred_language=db.Column(db.String(20), nullable=False, default='english')
+    timezone_name=db.Column(db.String(60), nullable=False, default='Asia/Ho_Chi_Minh')
+
 VALID_LEVELS = {
     "english": {"A1","A2","B1","B2","C1","C2"},
     "chinese": {"HSK1","HSK2","HSK3","HSK4","HSK5","HSK6"},
@@ -518,12 +553,64 @@ def game_answer():
     earned=0
     if correct and u and row.user_id==u.id:
         u.xp+=10; earned=10
+        record_activity(u.id,xp=10)
         audit('game_xp',f'challenge={row.id}; xp=10')
     correct_word=db.session.get(Word,row.answer_word_id)
     db.session.commit()
     return jsonify(correct=correct,earned_xp=earned,xp=u.xp if u else 0,correct_meaning=correct_word.meaning if correct_word else '')
 
 
+
+def daily_activity(user_id, day=None):
+    day=day or datetime.now(timezone.utc).date()
+    row=DailyActivity.query.filter_by(user_id=user_id,activity_date=day).first()
+    if not row:
+        row=DailyActivity(user_id=user_id,activity_date=day)
+        db.session.add(row); db.session.flush()
+    return row
+
+def profile_setting(user_id):
+    row=ProfileSetting.query.filter_by(user_id=user_id).first()
+    if not row:
+        row=ProfileSetting(user_id=user_id)
+        db.session.add(row); db.session.flush()
+    return row
+
+def record_activity(user_id, seconds=0, lessons=0, xp=0):
+    row=daily_activity(user_id)
+    row.seconds=max(0,int(row.seconds or 0)+max(0,int(seconds or 0)))
+    row.lessons=max(0,int(row.lessons or 0)+max(0,int(lessons or 0)))
+    row.xp_earned=max(0,int(row.xp_earned or 0)+max(0,int(xp or 0)))
+    return row
+
+def streak_days(user_id):
+    dates={x.activity_date for x in DailyActivity.query.filter_by(user_id=user_id).filter(DailyActivity.seconds>0).all()}
+    cur=datetime.now(timezone.utc).date(); streak=0
+    while cur in dates:
+        streak+=1; cur-=timedelta(days=1)
+    return streak
+
+BADGE_DEFS={
+ 'first_lesson':('Bước đầu tiên','Hoàn thành bài học đầu tiên','footprints'),
+ 'streak_3':('Kiên trì 3 ngày','Học liên tục 3 ngày','flame'),
+ 'streak_7':('Tuần lễ chăm chỉ','Học liên tục 7 ngày','trophy'),
+ 'words_50':('Nhà sưu tầm từ','Đã học 50 từ','book-marked'),
+ 'xp_500':('Chiến binh XP','Đạt 500 XP','zap'),
+}
+
+def sync_badges(user):
+    keys=set()
+    stat=study_stat(user.id)
+    learned=LearnedWord.query.filter_by(user_id=user.id).count()
+    streak=streak_days(user.id)
+    if (stat.lessons_completed or 0)>=1: keys.add('first_lesson')
+    if streak>=3: keys.add('streak_3')
+    if streak>=7: keys.add('streak_7')
+    if learned>=50: keys.add('words_50')
+    if (user.xp or 0)>=500: keys.add('xp_500')
+    existing={x.badge_key for x in BadgeAward.query.filter_by(user_id=user.id).all()}
+    for key in keys-existing: db.session.add(BadgeAward(user_id=user.id,badge_key=key))
+    return keys|existing
 
 def study_stat(user_id):
     row=StudyStat.query.filter_by(user_id=user_id).first()
@@ -560,6 +647,7 @@ def study_heartbeat():
     if seconds:
         row.total_seconds=(row.total_seconds or 0)+seconds
         row.updated_at=datetime.now(timezone.utc)
+        record_activity(u.id,seconds=seconds)
     db.session.commit()
     return jsonify(ok=True,**study_stats_json(row))
 
@@ -567,6 +655,7 @@ def register_completed_lesson(user_id):
     row=study_stat(user_id)
     row.lessons_completed=(row.lessons_completed or 0)+1
     row.updated_at=datetime.now(timezone.utc)
+    record_activity(user_id,lessons=1)
 
 def learned_json(row, word):
     now=datetime.now(timezone.utc)
@@ -649,7 +738,7 @@ def review_answer():
     if correct:
         learned.correct_count+=1; learned.strength=min(5,learned.strength+1)
         days=[1,2,4,7,14,30][learned.strength]
-        learned.next_review_at=now+timedelta(days=days); u.xp+=5
+        learned.next_review_at=now+timedelta(days=days); u.xp+=5; record_activity(u.id,xp=5)
     else:
         learned.wrong_count+=1; learned.strength=max(0,learned.strength-1); learned.next_review_at=now+timedelta(minutes=10)
     correct_word=db.session.get(Word,row.answer_word_id); audit('review_answer',f'word={row.answer_word_id}; correct={correct}')
@@ -845,9 +934,126 @@ def language_ranking():
         return jsonify(items=[], updated_at='', metric='', warning='Chưa thể cập nhật bảng xu hướng lúc này.')
 
 
+@app.get('/api/dashboard/summary')
+@login_required
+def dashboard_summary():
+    u=current_user(); setting=profile_setting(u.id); stat=study_stat(u.id)
+    today=datetime.now(timezone.utc).date(); monday=today-timedelta(days=today.weekday())
+    week=DailyActivity.query.filter(DailyActivity.user_id==u.id,DailyActivity.activity_date>=monday).all()
+    keys=sync_badges(u); db.session.commit()
+    badges=[{'key':k,'name':BADGE_DEFS[k][0],'description':BADGE_DEFS[k][1],'icon':BADGE_DEFS[k][2]} for k in sorted(keys) if k in BADGE_DEFS]
+    return jsonify(streak=streak_days(u.id),daily_goal_minutes=setting.daily_goal_minutes,
+      today_minutes=(daily_activity(u.id).seconds or 0)//60,weekly_minutes=sum(x.seconds or 0 for x in week)//60,
+      lessons_completed=stat.lessons_completed or 0,learned_words=LearnedWord.query.filter_by(user_id=u.id).count(),
+      badges=badges)
+
+@app.get('/api/leaderboard')
+def leaderboard():
+    period=request.args.get('period','week'); today=datetime.now(timezone.utc).date()
+    start=today-timedelta(days=today.weekday()) if period=='week' else today.replace(day=1)
+    rows=(db.session.query(User.id,User.name,func.coalesce(func.sum(DailyActivity.xp_earned),0).label('xp'))
+      .outerjoin(DailyActivity,(DailyActivity.user_id==User.id)&(DailyActivity.activity_date>=start))
+      .filter(User.is_active.is_(True),User.role=='user').group_by(User.id,User.name)
+      .order_by(db.text('xp DESC'),User.id.asc()).limit(100).all())
+    return jsonify(period=period,start=start.isoformat(),items=[{'rank':i+1,'name':r.name,'xp':int(r.xp or 0)} for i,r in enumerate(rows)])
+
+LESSON_TOPICS=['Chào hỏi','Gia đình','Hằng ngày','Trường học','Ăn uống','Mua sắm','Du lịch','Công việc','Sức khỏe','Công nghệ','Thiên nhiên','Ôn tập tổng hợp']
+@app.get('/api/lessons')
+@login_required
+def lessons_list():
+    u=current_user(); lang=request.args.get('language','english'); level=request.args.get('level','A1').upper().replace(' ','')
+    total=Word.query.filter_by(language=lang,level=level).count(); per=max(5,(total+11)//12 if total else 10)
+    progress={x.lesson_number:x for x in LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level).all()}
+    items=[]
+    for n in range(1,13):
+        pr=progress.get(n); unlocked=n==1 or bool(progress.get(n-1) and progress[n-1].completed)
+        items.append({'number':n,'title':LESSON_TOPICS[n-1],'word_count':min(per,max(0,total-(n-1)*per)),
+          'completed':bool(pr and pr.completed),'best_score':int(pr.best_score if pr else 0),'unlocked':unlocked})
+    return jsonify(language=lang,level=level,total_words=total,items=items)
+
+@app.get('/api/lessons/<int:number>')
+@login_required
+def lesson_detail(number):
+    if number<1 or number>12:return jsonify(error='Bài học không hợp lệ'),404
+    u=current_user(); lang=request.args.get('language','english'); level=request.args.get('level','A1').upper().replace(' ','')
+    prior=LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first()
+    if number>1 and not prior:return jsonify(error='Hãy hoàn thành bài trước để mở khóa.'),403
+    total=Word.query.filter_by(language=lang,level=level).count(); per=max(5,(total+11)//12 if total else 10)
+    words=Word.query.filter_by(language=lang,level=level).order_by(Word.id.asc()).offset((number-1)*per).limit(per).all()
+    return jsonify(number=number,title=LESSON_TOPICS[number-1],items=[word_json(x) for x in words])
+
+@app.post('/api/lessons/<int:number>/complete')
+@login_required
+@limited('lesson-complete',30,60)
+def lesson_complete(number):
+    if number<1 or number>12:return jsonify(error='Bài học không hợp lệ'),404
+    u=current_user(); d=request.get_json(silent=True) or {}; lang=str(d.get('language','english')); level=str(d.get('level','A1')).upper().replace(' ','')
+    score=max(0,min(100,int(d.get('score',0) or 0)))
+    if number>1 and not LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first():
+        return jsonify(error='Bài học này chưa được mở khóa.'),403
+    row=LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number).first()
+    if not row: row=LessonProgress(user_id=u.id,language=lang,level=level,lesson_number=number); db.session.add(row)
+    first=not row.completed; row.attempts+=1; row.best_score=max(row.best_score or 0,score); row.completed=score>=60 or row.completed; row.updated_at=datetime.now(timezone.utc)
+    earned=20 if first and row.completed else (5 if score>=80 else 0)
+    if earned: u.xp+=earned; record_activity(u.id,xp=earned)
+    if first and row.completed: register_completed_lesson(u.id)
+    audit('lesson_complete',f'{lang}/{level}/{number}; score={score}; xp={earned}'); sync_badges(u); db.session.commit()
+    return jsonify(ok=True,completed=row.completed,best_score=row.best_score,earned_xp=earned,xp=u.xp)
+
+@app.patch('/api/profile')
+@login_required
+def update_profile():
+    u=current_user(); d=request.get_json(silent=True) or {}; setting=profile_setting(u.id)
+    if 'name' in d:
+        name=str(d.get('name','')).strip()[:100]
+        if len(name)<2:return jsonify(error='Tên cần ít nhất 2 ký tự.'),400
+        u.name=name
+    if 'daily_goal_minutes' in d: setting.daily_goal_minutes=max(5,min(180,int(d.get('daily_goal_minutes',10))))
+    if d.get('preferred_language') in ('english','chinese'): setting.preferred_language=d['preferred_language']
+    audit('profile_update','user updated profile'); db.session.commit(); return jsonify(ok=True,user=user_json(u))
+
+@app.get('/api/profile/export.json')
+@login_required
+def export_profile():
+    u=current_user(); learned=db.session.query(LearnedWord,Word).join(Word,Word.id==LearnedWord.word_id).filter(LearnedWord.user_id==u.id).all()
+    data={'exported_at':datetime.now(timezone.utc).isoformat(),'user':user_json(u),'study':study_stats_json(study_stat(u.id)),
+      'learned_words':[learned_json(a,b) for a,b in learned],'lessons':[{'language':x.language,'level':x.level,'lesson':x.lesson_number,'score':x.best_score,'completed':x.completed} for x in LessonProgress.query.filter_by(user_id=u.id).all()]}
+    return app.response_class(json.dumps(data,ensure_ascii=False,indent=2),mimetype='application/json',headers={'Content-Disposition':'attachment; filename=lingoplay-my-data.json'})
+
+@app.get('/api/admin/backup.json')
+@admin_required
+def admin_backup():
+    data={'created_at':datetime.now(timezone.utc).isoformat(),
+      'users':[user_json(x) for x in User.query.all()],
+      'words':[word_json(x) for x in Word.query.all()],
+      'phrases':[{'language':x.language,'level':x.level,'phrase':x.phrase,'meaning':x.meaning} for x in Phrase.query.all()],
+      'learned':[{'user_id':x.user_id,'word_id':x.word_id,'strength':x.strength,'correct':x.correct_count,'wrong':x.wrong_count} for x in LearnedWord.query.all()],
+      'activities':[{'user_id':x.user_id,'date':x.activity_date.isoformat(),'seconds':x.seconds,'lessons':x.lessons,'xp':x.xp_earned} for x in DailyActivity.query.all()]}
+    audit('admin_backup','json backup downloaded'); db.session.commit()
+    return app.response_class(json.dumps(data,ensure_ascii=False,indent=2),mimetype='application/json',headers={'Content-Disposition':'attachment; filename=lingoplay-backup.json'})
+
+@app.get('/api/admin/audit')
+@admin_required
+def admin_audit():
+    rows=AuditLog.query.order_by(AuditLog.id.desc()).limit(200).all()
+    return jsonify(items=[{'action':x.action,'detail':x.detail,'user_id':x.user_id,'created_at':x.created_at.isoformat()} for x in rows])
+
+@app.errorhandler(404)
+def not_found(err):
+    if request.path.startswith('/api/'):return jsonify(error='Không tìm thấy API'),404
+    return send_from_directory(PUBLIC_DIR,'lingoplay-home.html'),404
+
+@app.errorhandler(500)
+def server_error(err):
+    db.session.rollback(); app.logger.exception('Unhandled server error')
+    if request.path.startswith('/api/'):return jsonify(error='Máy chủ gặp lỗi tạm thời. Vui lòng thử lại.'),500
+    return send_from_directory(PUBLIC_DIR,'lingoplay-home.html'),500
+
 @app.get('/api/admin/stats')
 @admin_required
-def stats(): return jsonify(users=User.query.count(),words=Word.query.count(),phrases=Phrase.query.count(),active_users=User.query.filter_by(is_active=True).count())
+def stats():
+    today=datetime.now(timezone.utc).date()
+    return jsonify(users=User.query.count(),words=Word.query.count(),phrases=Phrase.query.count(),active_users=User.query.filter_by(is_active=True).count(),today_active=DailyActivity.query.filter_by(activity_date=today).count(),lessons=func.coalesce(db.session.query(func.sum(StudyStat.lessons_completed)).scalar(),0),audit_logs=AuditLog.query.count())
 @app.get('/api/admin/users')
 @admin_required
 def admin_users():
@@ -1008,7 +1214,7 @@ def seed():
         if not Phrase.query.filter_by(language=p[0],level=p[1],phrase=p[2]).first():
             db.session.add(Phrase(language=p[0],level=p[1],phrase=p[2],meaning=p[3]))
     db.session.flush()
-    for user in User.query.all(): security_state(user.id)
+    for user in User.query.all(): security_state(user.id); profile_setting(user.id)
     GameChallenge.query.filter(GameChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     ReviewChallenge.query.filter(ReviewChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     db.session.commit()

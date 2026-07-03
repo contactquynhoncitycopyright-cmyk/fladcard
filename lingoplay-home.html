@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=810">
+  <link rel="stylesheet" href="./style.css?v=major1&x=v=900">
 </head>
 <body>
   <div class="app-frame">
@@ -41,27 +41,24 @@
         <button class="nav-btn active" data-view="home"><i data-lucide="house"></i><span>Trang chủ</span></button>
         <button class="nav-btn" data-view="learn"><i data-lucide="book-open"></i><span>Học từ vựng</span></button>
         <button class="nav-btn" data-view="topics"><i data-lucide="layout-grid"></i><span>Từ vựng theo chủ đề</span></button>
+        <button class="nav-btn auth-only hidden" data-view="lessons"><i data-lucide="route"></i><span>Lộ trình bài học</span></button>
         <button class="nav-btn" data-view="phrases"><i data-lucide="messages-square"></i><span>Cụm nói thực chiến</span></button>
         <button class="nav-btn auth-only hidden" data-view="learned"><i data-lucide="brain"></i><span>Từ đã học</span></button>
         <button class="nav-btn" data-view="game"><i data-lucide="gamepad-2"></i><span>Trò chơi</span></button>
         <button class="nav-btn" data-view="lookup"><i data-lucide="languages"></i><span>Tra từ & Dịch</span></button>
+        <button class="nav-btn" data-view="leaderboard"><i data-lucide="trophy"></i><span>Bảng xếp hạng</span></button>
         <button class="nav-btn" data-view="insights"><i data-lucide="newspaper"></i><span>Tin tức & Xếp hạng</span></button>
         <button class="nav-btn auth-only hidden" data-view="profile"><i data-lucide="user-round"></i><span>Thông tin cá nhân</span></button>
         <button class="nav-btn admin-only hidden" data-view="admin"><i data-lucide="shield-cog"></i><span>Quản trị</span></button>
       </nav>
 
       <div class="streak-card">
-        <div class="streak-head"><span>🔥 Chuỗi học tập</span><strong>7 ngày</strong></div>
+        <div class="streak-head"><span>🔥 Chuỗi học tập</span><strong id="liveStreak">0 ngày</strong></div>
         <div class="streak-days"><span class="done">T2</span><span class="done">T3</span><span class="done">T4</span><span class="done">T5</span><span class="done">T6</span><span>T7</span><span>CN</span></div>
         <div class="level-box"><small>Cấp độ tài khoản</small><strong id="sidebarAccountLevel">Lv.1</strong><div class="progress"><i id="sidebarAccountXpBar" style="width:0%"></i></div><span id="sidebarAccountXp">0 / 100 XP</span></div>
       </div>
 
-      <div class="upgrade-card">
-        <i data-lucide="rocket"></i>
-        <strong>Nâng cấp Pro</strong>
-        <p>Mở khóa tính năng nâng cao và học không giới hạn.</p>
-        <button class="btn btn-light">Nâng cấp ngay</button>
-      </div>
+
     </aside>
 
     <main class="page-shell">
@@ -299,6 +296,19 @@
         </div>
       </section>
 
+
+      <section id="lessonsView" class="view">
+        <div class="view-header"><div><span class="section-kicker">LỘ TRÌNH CÓ MỞ KHÓA</span><h2>Bài học theo cấp độ</h2><p>Hoàn thành từng bài để mở bài tiếp theo và nhận XP.</p></div></div>
+        <div class="toolbar"><select id="lessonLanguage"><option value="english">Tiếng Anh</option><option value="chinese">Tiếng Trung</option></select><select id="lessonLevel"></select><button id="loadLessonsBtn" class="btn btn-primary">Xem lộ trình</button></div>
+        <div id="lessonGrid" class="lesson-grid"></div><div id="lessonPlayer" class="lesson-player hidden"></div>
+      </section>
+
+      <section id="leaderboardView" class="view">
+        <div class="view-header"><div><span class="section-kicker">THI ĐUA LÀNH MẠNH</span><h2>Bảng xếp hạng</h2><p>Xếp hạng XP theo tuần hoặc theo tháng.</p></div></div>
+        <div class="toolbar"><select id="leaderboardPeriod"><option value="week">Tuần này</option><option value="month">Tháng này</option></select><button id="refreshLeaderboardBtn" class="btn btn-primary">Cập nhật</button></div>
+        <div id="leaderboardList" class="leaderboard-list"></div>
+      </section>
+
       <section id="profileView" class="view">
         <div class="view-header"><div><span class="section-kicker">TÀI KHOẢN CỦA BẠN</span><h2>Thông tin người dùng</h2><p>Xem thông tin cơ bản và tiến độ học tập của tài khoản.</p></div></div>
         <div class="profile-layout">
@@ -390,6 +400,8 @@
         </div>
       </section>
     </main>
+    <footer class="site-footer"><button data-legal="privacy">Chính sách quyền riêng tư</button><button data-legal="terms">Điều khoản sử dụng</button><button data-legal="cookies">Chính sách cookie</button><button data-legal="support">Hỗ trợ</button></footer>
+    <div id="legalModal" class="modal hidden"><div class="modal-card legal-card"><button id="closeLegalModal" class="modal-close" aria-label="Đóng">×</button><div id="legalContent"></div></div></div>
   </div>
 
   <div id="authModal" class="modal hidden">
@@ -405,6 +417,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=810"></script>
+  <script src="./app.js?v=major1&x=v=900"></script>
 </body>
 </html>
