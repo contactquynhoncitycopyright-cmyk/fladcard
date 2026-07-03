@@ -307,11 +307,12 @@ $("#lookupInput").oninput = () => { clearTimeout(suggestionTimer); suggestionTim
 $("#translateBtn").onclick = translateText;
 $("#wordForm").onsubmit = async e => {
   e.preventDefault();
-  const body = Object.fromEntries(new FormData(e.currentTarget).entries());
+  const form = e.currentTarget;
+  const body = Object.fromEntries(new FormData(form).entries());
   try {
     await api("/api/admin/words",{method:"POST",body:JSON.stringify(body)});
     $("#adminMessage").textContent = "Đã thêm từ mới.";
-    e.currentTarget.reset();
+    form.reset();
     loadAdmin();
   } catch(err) { $("#adminMessage").textContent = err.message; }
 };
@@ -344,6 +345,7 @@ $("#downloadTemplateBtn").onclick = () => downloadAdminFile("/api/admin/words/te
 $("#exportWordsBtn").onclick = () => downloadAdminFile("/api/admin/words/export.csv", "lingoplay-vocabulary-export.csv");
 $("#csvImportForm").onsubmit = async e => {
   e.preventDefault();
+  const form = e.currentTarget;
   const file = $("#csvFile").files[0];
   if (!file) return;
   const fd = new FormData();
@@ -359,7 +361,7 @@ $("#csvImportForm").onsubmit = async e => {
     if (data.errors?.length) {
       $("#csvImportErrors").innerHTML = `<b>Một số dòng lỗi:</b>${data.errors.map(x => `<div>Dòng ${x.line}: ${escapeHtml(x.error)}</div>`).join("")}`;
     }
-    e.currentTarget.reset();
+    form.reset();
     await loadAdmin();
     await loadWords();
   } catch (err) {
