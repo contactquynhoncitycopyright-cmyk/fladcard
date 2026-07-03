@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=401">
+  <link rel="stylesheet" href="./style.css?v=501">
 </head>
 <body>
   <div class="app-frame">
@@ -40,6 +40,7 @@
       <nav class="side-nav">
         <button class="nav-btn active" data-view="home"><i data-lucide="house"></i><span>Trang chủ</span></button>
         <button class="nav-btn" data-view="learn"><i data-lucide="book-open"></i><span>Học từ vựng</span></button>
+        <button class="nav-btn" data-view="topics"><i data-lucide="layout-grid"></i><span>Từ vựng theo chủ đề</span></button>
         <button class="nav-btn" data-view="phrases"><i data-lucide="messages-square"></i><span>Cụm nói thực chiến</span></button>
         <button class="nav-btn auth-only hidden" data-view="learned"><i data-lucide="brain"></i><span>Từ đã học</span></button>
         <button class="nav-btn" data-view="game"><i data-lucide="gamepad-2"></i><span>Trò chơi</span></button>
@@ -195,6 +196,23 @@
         </section>
       </section>
 
+
+      <section id="topicsView" class="view">
+        <div class="view-header"><div><span class="section-kicker">HỌC THEO TÌNH HUỐNG</span><h2>Từ vựng theo chủ đề</h2><p>Chọn chủ đề quen thuộc như hằng ngày, du lịch, ăn uống và mua sắm để học nhanh hơn.</p></div></div>
+        <section class="surface-card topic-browser">
+          <div class="topic-toolbar">
+            <select id="topicLanguage"><option value="english">Tiếng Anh</option><option value="chinese">Tiếng Trung</option></select>
+            <select id="topicLevel"><option value="">Tất cả cấp độ</option></select>
+            <input id="topicSearch" type="search" placeholder="Tìm trong chủ đề đang mở...">
+            <button id="reloadTopicsBtn" class="btn btn-secondary" type="button"><i data-lucide="refresh-cw"></i> Làm mới</button>
+          </div>
+          <div id="topicCards" class="topic-card-grid"></div>
+        </section>
+        <section id="topicWordSection" class="surface-card topic-word-section hidden">
+          <div class="topic-word-head"><div><span id="topicWordKicker" class="section-kicker">CHỦ ĐỀ</span><h3 id="topicWordTitle">Từ vựng</h3><p id="topicWordDescription"></p></div><button id="closeTopicBtn" class="btn btn-light" type="button">Đóng</button></div>
+          <div id="topicWordGrid" class="word-grid"></div>
+        </section>
+      </section>
 
       <section id="learnedView" class="view">
         <div class="view-header"><div><span class="section-kicker">ÔN TẬP THÔNG MINH</span><h2>Từ đã học của bạn</h2><p>Lưu lại từ đã học và ôn theo chu kỳ như Duolingo.</p></div></div>
@@ -387,6 +405,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=403"></script>
+  <script src="./app.js?v=501"></script>
 </body>
 </html>

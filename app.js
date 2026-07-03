@@ -50,6 +50,7 @@ function showView(name) {
   targetView.classList.add("active");
   $$(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
   if (name === "learn") loadWords();
+  if (name === "topics") loadTopics();
   if (name === "lookup") setTimeout(() => $("#lookupInput")?.focus(), 100);
   if (name === "phrases") loadPhrases();
   if (name === "learned") loadLearnedWords();
@@ -486,6 +487,39 @@ function renderAccountProgress() {
   }
 }
 
+
+function formatStudyTime(totalSeconds = 0) {
+  const seconds = Math.max(0, Number(totalSeconds || 0));
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = seconds / 3600;
+  return `${hours < 10 ? hours.toFixed(1) : Math.floor(hours)} giờ`;
+}
+
+async function loadStudyStats() {
+  if (!currentUser) return;
+  try {
+    const data = await api('/api/study/stats');
+    const timeText = formatStudyTime(data.total_seconds);
+    if ($('#studyHours')) $('#studyHours').textContent = timeText;
+    if ($('#studyLessons')) $('#studyLessons').textContent = data.lessons_completed || 0;
+    if ($('#profileStudyHours')) $('#profileStudyHours').textContent = timeText;
+    if ($('#profileStudyLessons')) $('#profileStudyLessons').textContent = data.lessons_completed || 0;
+  } catch (_) {}
+}
+
+let studyHeartbeatTimer = null;
+const STUDY_VIEWS = new Set(['home','learn','learned','game','phrases','lookup']);
+function startStudyHeartbeat() {
+  if (studyHeartbeatTimer) clearInterval(studyHeartbeatTimer);
+  studyHeartbeatTimer = setInterval(async () => {
+    const activeView = document.querySelector('.view.active')?.id?.replace('View','').toLowerCase() || '';
+    if (!currentUser || document.hidden || !STUDY_VIEWS.has(activeView)) return;
+    try { await api('/api/study/heartbeat', {method:'POST', body:JSON.stringify({seconds:60})}); } catch (_) {}
+  }, 60000);
+}
+startStudyHeartbeat();
+
 function profileInitials(name = "LingoPlay") {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   return (parts.slice(-2).map(part => part[0]).join("") || "LP").toUpperCase();
@@ -509,6 +543,7 @@ function renderProfile() {
   if ($("#profileLanguage")) $("#profileLanguage").textContent = languageText;
   if ($("#profileLevel")) $("#profileLevel").textContent = level;
   renderAccountProgress();
+  loadStudyStats();
 }
 
 async function newGame() {
@@ -1199,7 +1234,7 @@ async function loadLearnedWords() {
   const q=$('#learnedSearch')?.value.trim() || '';
   try {
     const data=await api(`/api/learned?language=${encodeURIComponent(lang)}&search=${encodeURIComponent(q)}`);
-    $('#learnedTotal').textContent=data.total; $('#learnedDue').textContent=data.due; $('#learnedMastered').textContent=data.mastered;
+    $('#learnedTotal').textContent=data.total; $('#learnedDue').textContent=data.due; $('#learnedMastered').textContent=data.mastered; loadStudyStats();
     list.innerHTML=data.items.length ? data.items.map(x=>`
       <article class="learned-item ${x.due?'due':''}">
         <div class="learned-main"><div class="learned-word-line"><strong>${escapeHtml(x.word)}</strong><span>${escapeHtml(x.pronunciation||'')}</span></div><p>${escapeHtml(x.meaning)}</p><small>${escapeHtml(x.language==='chinese'?'Tiếng Trung':'Tiếng Anh')} • ${escapeHtml(x.level)} • ${escapeHtml(x.topic||'general')}</small></div>
@@ -1232,8 +1267,8 @@ async function answerReview(id){
     const data=await api('/api/review/answer',{method:'POST',body:JSON.stringify({token:currentReview.token,answer_id:id})});
     $('#reviewMessage').textContent=data.correct?`Chính xác! +${data.earned_xp} XP`:`Chưa đúng. Đáp án: ${data.correct_meaning}`;
     if(data.correct) playUiSound('success'); else playUiSound('wrong');
-    if(currentUser){currentUser.xp=data.xp; refreshUser();}
-    $('#nextReviewBtn').classList.remove('hidden'); loadLearnedWords();
+    if(currentUser){currentUser.xp=data.xp; refreshUser(); loadStudyStats();}
+    $('#nextReviewBtn').classList.remove('hidden'); loadLearnedWords(); loadStudyStats();
   }catch(e){$('#reviewMessage').textContent=e.message;}
 }
 
@@ -1249,3 +1284,77 @@ $('#reloadLearnedBtn')?.addEventListener('click',loadLearnedWords);
 $('#learnedLanguage')?.addEventListener('change',loadLearnedWords);
 let learnedSearchTimer;
 $('#learnedSearch')?.addEventListener('input',()=>{clearTimeout(learnedSearchTimer);learnedSearchTimer=setTimeout(loadLearnedWords,250);});
+
+
+// ===== TỪ VỰNG THEO CHỦ ĐỀ =====
+const topicIcons = {
+  daily:'sun', travel:'plane', greetings:'messages-circle', food:'utensils',
+  shopping:'shopping-bag', family:'users', school:'graduation-cap', work:'briefcase-business',
+  health:'heart-pulse', technology:'cpu', nature:'trees', time:'clock-3'
+};
+let activeTopicKey = '';
+let topicSearchTimer = null;
+
+function fillTopicLevels(){
+  const lang=$('#topicLanguage')?.value || 'english';
+  const select=$('#topicLevel'); if(!select)return;
+  const previous=select.value;
+  select.innerHTML='<option value="">Tất cả cấp độ</option>'+levels[lang].map(x=>`<option value="${x}">${x}</option>`).join('');
+  if([...select.options].some(x=>x.value===previous)) select.value=previous;
+}
+
+async function loadTopics(){
+  const cards=$('#topicCards'); if(!cards)return;
+  fillTopicLevels();
+  const lang=$('#topicLanguage').value;
+  const level=$('#topicLevel').value;
+  cards.innerHTML='<div class="topic-empty">Đang tải các chủ đề...</div>';
+  try{
+    const data=await api(`/api/topics?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}`);
+    cards.innerHTML=data.items.map(x=>`
+      <button class="topic-card" type="button" data-topic-key="${escapeHtml(x.key)}">
+        <span class="topic-card-icon"><i data-lucide="${topicIcons[x.key]||'book-open'}"></i></span>
+        <h3>${escapeHtml(x.name)}</h3>
+        <p>${escapeHtml(x.description)}</p>
+        <footer><span class="topic-count">${x.count} từ</span><span>Học ngay →</span></footer>
+      </button>`).join('');
+    refreshIcons();
+    if(activeTopicKey) loadTopicWords(activeTopicKey);
+  }catch(e){ cards.innerHTML=`<div class="topic-empty">${escapeHtml(e.message)}</div>`; }
+}
+
+async function loadTopicWords(key){
+  activeTopicKey=key;
+  const section=$('#topicWordSection'), grid=$('#topicWordGrid');
+  if(!section||!grid)return;
+  section.classList.remove('hidden');
+  section.scrollIntoView({behavior:'smooth',block:'start'});
+  grid.innerHTML='<div class="topic-empty">Đang tải từ vựng...</div>';
+  const lang=$('#topicLanguage').value;
+  const level=$('#topicLevel').value;
+  const search=$('#topicSearch').value.trim();
+  try{
+    const data=await api(`/api/topic-words?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}&category=${encodeURIComponent(key)}&search=${encodeURIComponent(search)}`);
+    $('#topicWordKicker').textContent=lang==='chinese'?'TIẾNG TRUNG':'TIẾNG ANH';
+    $('#topicWordTitle').textContent=data.category.name;
+    $('#topicWordDescription').textContent=`${data.category.description} • ${data.items.length} từ`;
+    grid.innerHTML=data.items.length?data.items.map(w=>`
+      <article class="card word-card">
+        <div class="word-top"><div><h3>${escapeHtml(w.word)}</h3><div class="pron">${escapeHtml(w.pronunciation||'')}</div></div><span class="topic">${escapeHtml(w.level||'')}</span></div>
+        <p><b>${escapeHtml(w.meaning||'Chưa có nghĩa')}</b></p>
+        <p class="example">${escapeHtml(w.example||'Chưa có ví dụ')}</p>
+        <div class="word-actions"><button class="speak" type="button" data-speak=${JSON.stringify(w.word||'')} aria-label="Nghe phát âm"><i data-lucide="volume-2"></i></button><button class="learned-btn" type="button" data-learn-word="${w.id}"><i data-lucide="check-circle-2"></i> Đã học</button></div>
+      </article>`).join(''):'<div class="topic-empty">Chưa có từ phù hợp trong chủ đề này. Hãy thử chọn tất cả cấp độ.</div>';
+    refreshIcons();
+  }catch(e){grid.innerHTML=`<div class="topic-empty">${escapeHtml(e.message)}</div>`;}
+}
+
+document.addEventListener('click',event=>{
+  const card=event.target.closest('[data-topic-key]');
+  if(card){loadTopicWords(card.dataset.topicKey);return;}
+});
+$('#topicLanguage')?.addEventListener('change',()=>{activeTopicKey='';$('#topicWordSection')?.classList.add('hidden');fillTopicLevels();loadTopics();});
+$('#topicLevel')?.addEventListener('change',()=>{loadTopics();});
+$('#reloadTopicsBtn')?.addEventListener('click',loadTopics);
+$('#closeTopicBtn')?.addEventListener('click',()=>{$('#topicWordSection')?.classList.add('hidden');activeTopicKey='';});
+$('#topicSearch')?.addEventListener('input',()=>{clearTimeout(topicSearchTimer);topicSearchTimer=setTimeout(()=>{if(activeTopicKey)loadTopicWords(activeTopicKey)},300);});

@@ -424,6 +424,61 @@ def words():
     query=Word.query.filter_by(language=lang,level=level)
     if q: query=query.filter(or_(Word.word.ilike(f'%{q}%'),Word.meaning.ilike(f'%{q}%'),Word.topic.ilike(f'%{q}%')))
     return jsonify(items=[word_json(x) for x in query.order_by(Word.id.desc()).limit(300).all()])
+TOPIC_GROUPS = {
+    'daily': {'name':'Hằng ngày','description':'Những từ dùng thường xuyên trong sinh hoạt mỗi ngày.','keywords':['daily','everyday','routine','hằng ngày','hang ngay','sinh hoạt','cuộc sống']},
+    'travel': {'name':'Du lịch','description':'Sân bay, khách sạn, phương tiện và hỏi đường.','keywords':['travel','tourism','trip','du lịch','du lich','hotel','airport','transport']},
+    'greetings': {'name':'Chào hỏi & giao tiếp','description':'Chào hỏi, giới thiệu bản thân và hội thoại cơ bản.','keywords':['greeting','conversation','communication','chào hỏi','chao hoi','giao tiếp','introduction']},
+    'food': {'name':'Ăn uống','description':'Thực phẩm, nhà hàng, đồ uống và gọi món.','keywords':['food','drink','restaurant','meal','ăn uống','an uong','thực phẩm','đồ ăn']},
+    'shopping': {'name':'Mua sắm','description':'Cửa hàng, giá cả, quần áo và thanh toán.','keywords':['shopping','shop','store','money','mua sắm','mua sam','siêu thị','price']},
+    'family': {'name':'Gia đình & con người','description':'Gia đình, bạn bè, ngoại hình và tính cách.','keywords':['family','people','friend','relationship','gia đình','gia dinh','con người']},
+    'school': {'name':'Trường học','description':'Lớp học, môn học, thi cử và dụng cụ học tập.','keywords':['school','education','study','class','trường học','truong hoc','giáo dục']},
+    'work': {'name':'Công việc','description':'Nghề nghiệp, văn phòng, phỏng vấn và kinh doanh.','keywords':['work','job','career','office','business','công việc','cong viec','nghề nghiệp']},
+    'health': {'name':'Sức khỏe','description':'Cơ thể, bệnh viện, cảm xúc và chăm sóc sức khỏe.','keywords':['health','body','hospital','doctor','sức khỏe','suc khoe','y tế']},
+    'technology': {'name':'Công nghệ','description':'Máy tính, Internet, điện thoại và trí tuệ nhân tạo.','keywords':['technology','computer','internet','digital','ai','công nghệ','cong nghe']},
+    'nature': {'name':'Thiên nhiên','description':'Thời tiết, động vật, môi trường và cảnh quan.','keywords':['nature','weather','animal','environment','thiên nhiên','thien nhien','môi trường']},
+    'time': {'name':'Thời gian & số đếm','description':'Ngày tháng, giờ giấc, số và tần suất.','keywords':['time','number','date','calendar','thời gian','thoi gian','số đếm']},
+}
+
+def topic_filter(query, category):
+    info=TOPIC_GROUPS.get(category)
+    if not info: return query
+    conditions=[Word.topic.ilike(f'%{k}%') for k in info['keywords']]
+    return query.filter(or_(*conditions))
+
+@app.get('/api/topics')
+def topic_catalog():
+    lang=request.args.get('language','english')[:20]
+    level=request.args.get('level','').strip()[:20]
+    result=[]
+    for key,info in TOPIC_GROUPS.items():
+        query=Word.query.filter_by(language=lang)
+        if level:
+            if lang=='chinese' and level.startswith('HSK') and ' ' not in level:
+                query=query.filter(or_(Word.level==level,Word.level==level.replace('HSK','HSK ')))
+            else: query=query.filter_by(level=level)
+        query=topic_filter(query,key)
+        count=query.count()
+        result.append({'key':key,'name':info['name'],'description':info['description'],'count':count})
+    return jsonify(items=result)
+
+@app.get('/api/topic-words')
+def topic_words():
+    lang=request.args.get('language','english')[:20]
+    level=request.args.get('level','').strip()[:20]
+    category=request.args.get('category','daily')[:30]
+    search=request.args.get('search','').strip()[:100]
+    if category not in TOPIC_GROUPS: return jsonify(error='Chủ đề không hợp lệ'),400
+    query=Word.query.filter_by(language=lang)
+    if level:
+        if lang=='chinese' and level.startswith('HSK') and ' ' not in level:
+            query=query.filter(or_(Word.level==level,Word.level==level.replace('HSK','HSK ')))
+        else: query=query.filter_by(level=level)
+    query=topic_filter(query,category)
+    if search: query=query.filter(or_(Word.word.ilike(f'%{search}%'),Word.meaning.ilike(f'%{search}%'),Word.example.ilike(f'%{search}%')))
+    rows=query.order_by(Word.level.asc(),Word.id.asc()).limit(500).all()
+    info=TOPIC_GROUPS[category]
+    return jsonify(category={'key':category,'name':info['name'],'description':info['description']},items=[word_json(x) for x in rows])
+
 @app.get('/api/phrases')
 def phrases():
     lang=request.args.get('language','english'); level=request.args.get('level','A1')
@@ -458,8 +513,9 @@ def game_answer():
     expires=row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at
     if expires<now: row.used=True; db.session.commit(); return jsonify(error='Câu hỏi đã hết hạn.'),400
     row.used=True; correct=answer_id==row.answer_word_id
+    u=current_user()
     if u: register_completed_lesson(u.id)
-    earned=0; u=current_user()
+    earned=0
     if correct and u and row.user_id==u.id:
         u.xp+=10; earned=10
         audit('game_xp',f'challenge={row.id}; xp=10')
