@@ -79,7 +79,7 @@ async function loadWords() {
       </div>
       <p><b>${escapeHtml(w.meaning)}</b></p>
       <p class="example">${escapeHtml(w.example || "Chưa có ví dụ")}</p>
-      <button class="speak" onclick='speak(${JSON.stringify(w.word)})'>🔊</button>
+      <button class="speak icon-only" type="button" aria-label="Phát âm ${escapeHtml(w.word)}" onclick='speak(${JSON.stringify(w.word)})'>${iconSvg("volume-2")}</button>
     </article>
   `).join("") : `<div class="card empty">Chưa có dữ liệu phù hợp.</div>`;
 }
@@ -91,7 +91,7 @@ async function loadPhrases() {
   $("#phraseList").innerHTML = data.items.length ? data.items.map(p => `
     <div class="card phrase-item">
       <div><strong>${escapeHtml(p.phrase)}</strong><br><span>${escapeHtml(p.meaning)}</span></div>
-      <button class="ghost" onclick='speak(${JSON.stringify(p.phrase)})'>🔊 Nghe</button>
+      <button class="ghost speak-with-label" type="button" onclick='speak(${JSON.stringify(p.phrase)})'>${iconSvg("volume-2")}<span>Nghe</span></button>
     </div>
   `).join("") : `<div class="card empty">Chưa có cụm nói cho cấp này.</div>`;
 }
@@ -404,27 +404,17 @@ const LOCAL_ICONS = {
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
 };
 
-function refreshIcons() {
-  document.querySelectorAll("[data-lucide]").forEach(node => {
+function iconSvg(name, className = "local-icon") {
+  const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
+  return `<svg class="${className}" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
+function refreshIcons(root = document) {
+  root.querySelectorAll("[data-lucide]").forEach(node => {
     const name = node.getAttribute("data-lucide");
-    const body = LOCAL_ICONS[name] || LOCAL_ICONS["plus"];
-
-    const svg = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "svg"
-    );
-
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("width", "24");
-    svg.setAttribute("height", "24");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "2");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("stroke-linejoin", "round");
-    svg.setAttribute("aria-hidden", "true");
-
-    svg.innerHTML = body;
+    const wrapper = document.createElement("span");
+    wrapper.innerHTML = iconSvg(name);
+    const svg = wrapper.firstElementChild;
     node.replaceWith(svg);
   });
 }
@@ -517,12 +507,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const quickLookup = event.target.closest(".quick-lookup, .quick-lookup-box");
-  if (quickLookup) {
-    event.preventDefault();
-    showView("lookup");
-    setTimeout(() => document.getElementById("lookupInput")?.focus(), 100);
-  }
 });
 
 // Các nút cấp độ ở trang chủ cũng điều hướng đúng tới kho học.
@@ -561,11 +545,12 @@ async function runQuickLookup() {
   result.innerHTML = "Đang tra từ...";
 
   try {
-    const data = await api(`/api/lookup?word=${encodeURIComponent(word)}`);
-    const item = data?.word || data?.result || data;
+    const data = await api(`/api/dictionary?word=${encodeURIComponent(word)}`);
+    const item = data?.result || data;
     const displayWord = item?.word || word;
-    const pronunciation = item?.pronunciation || item?.phonetic || "";
-    const meaning = item?.meaning || item?.vietnamese || item?.translation || "Chưa có nghĩa tiếng Việt.";
+    const pronunciation = item?.phonetic || item?.pronunciation || item?.local_items?.[0]?.pronunciation || "";
+    const first = firstDefinition(item);
+    const meaning = item?.translation || item?.local_items?.[0]?.meaning || first?.definition || "Chưa có nghĩa tiếng Việt.";
 
     result.innerHTML = `
       <b>${escapeHtml(displayWord)}</b>
