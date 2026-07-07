@@ -113,6 +113,20 @@ class GameChallenge(db.Model):
     expires_at=db.Column(db.DateTime, nullable=False)
     used=db.Column(db.Boolean, nullable=False, default=False)
 
+class LessonChallenge(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    token=db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id=db.Column(db.Integer, nullable=False, index=True)
+    language=db.Column(db.String(20), nullable=False)
+    level=db.Column(db.String(20), nullable=False)
+    lesson_number=db.Column(db.Integer, nullable=False)
+    payload=db.Column(db.Text, nullable=False)
+    current_index=db.Column(db.Integer, nullable=False, default=0)
+    correct_count=db.Column(db.Integer, nullable=False, default=0)
+    completed=db.Column(db.Boolean, nullable=False, default=False)
+    expires_at=db.Column(db.DateTime, nullable=False)
+    created_at=db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
 
 class DailyActivity(db.Model):
     id=db.Column(db.Integer, primary_key=True)
@@ -966,6 +980,49 @@ def valid_course(language, level):
     level=str(level or '').strip().upper().replace(' ','')
     return language, level, language in VALID_LEVELS and level in VALID_LEVELS[language]
 
+
+def lesson_words_for(language, level, number):
+    if number<1 or number>12: return []
+    total=Word.query.filter_by(language=language,level=level).count()
+    per=max(5,(total+11)//12 if total else 10)
+    return Word.query.filter_by(language=language,level=level).order_by(Word.id.asc()).offset((number-1)*per).limit(per).all()
+
+def build_lesson_questions(words, language, limit=6):
+    words=list(words or [])
+    if not words: return []
+    base=words[:]
+    secrets.SystemRandom().shuffle(base)
+    base=base[:min(limit,len(base))]
+    all_words=Word.query.filter(Word.language==language).order_by(func.random()).limit(80).all()
+    questions=[]
+    for i,w in enumerate(base):
+        mode='word_to_meaning' if i%2==0 else 'meaning_to_word'
+        pool=[x for x in all_words if x.id!=w.id]
+        secrets.SystemRandom().shuffle(pool)
+        wrongs=pool[:3]
+        options=[w]+wrongs
+        secrets.SystemRandom().shuffle(options)
+        if mode=='word_to_meaning':
+            prompt=w.word; prompt_sub=w.pronunciation or ''; option_key='meaning'; title='Chọn nghĩa đúng'
+        else:
+            prompt=w.meaning; prompt_sub='Nhìn nghĩa và chọn từ đúng'; option_key='word'; title='Chọn từ đúng'
+        questions.append({
+            'answer_id':w.id,
+            'mode':mode,
+            'title':title,
+            'prompt':prompt,
+            'prompt_sub':prompt_sub,
+            'options':[{'id':x.id,'text':getattr(x,option_key) or x.word} for x in options]
+        })
+    return questions
+
+def lesson_challenge_public(row):
+    data=json.loads(row.payload or '[]')
+    total=len(data); idx=int(row.current_index or 0)
+    done=bool(row.completed or idx>=total)
+    question=None if done else {k:v for k,v in data[idx].items() if k!='answer_id'}
+    return {'token':row.token,'index':min(idx+1,total),'total':total,'correct':int(row.correct_count or 0),'done':done,'question':question}
+
 @app.get('/api/lessons')
 @login_required
 def lessons_list():
@@ -988,9 +1045,65 @@ def lesson_detail(number):
     if not ok:return jsonify(error='Ngôn ngữ hoặc cấp độ không hợp lệ.'),400
     prior=LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first()
     if number>1 and not prior:return jsonify(error='Hãy hoàn thành bài trước để mở khóa.'),403
-    total=Word.query.filter_by(language=lang,level=level).count(); per=max(5,(total+11)//12 if total else 10)
-    words=Word.query.filter_by(language=lang,level=level).order_by(Word.id.asc()).offset((number-1)*per).limit(per).all()
+    words=lesson_words_for(lang,level,number)
     return jsonify(number=number,title=LESSON_TOPICS[number-1],items=[word_json(x) for x in words])
+
+
+@app.post('/api/lessons/<int:number>/challenge/start')
+@login_required
+@limited('lesson-challenge-start',20,60)
+def lesson_challenge_start(number):
+    if number<1 or number>12:return jsonify(error='Bài học không hợp lệ'),404
+    u=current_user(); d=request.get_json(silent=True) or {}; lang,level,ok=valid_course(d.get('language','english'),d.get('level','A1'))
+    if not ok:return jsonify(error='Ngôn ngữ hoặc cấp độ không hợp lệ.'),400
+    if number>1 and not LessonProgress.query.filter_by(user_id=u.id,language=lang,level=level,lesson_number=number-1,completed=True).first():
+        return jsonify(error='Hãy hoàn thành bài trước để mở khóa.'),403
+    words=lesson_words_for(lang,level,number)
+    if not words:return jsonify(error='Bài này chưa có từ vựng để luyện.'),400
+    questions=build_lesson_questions(words,lang,limit=6)
+    if not questions:return jsonify(error='Không tạo được mini game cho bài này.'),400
+    token=secrets.token_urlsafe(24)
+    row=LessonChallenge(token=token,user_id=u.id,language=lang,level=level,lesson_number=number,payload=json.dumps(questions,ensure_ascii=False),expires_at=datetime.now(timezone.utc)+timedelta(minutes=20))
+    db.session.add(row); db.session.commit()
+    return jsonify(lesson_challenge_public(row))
+
+@app.post('/api/lessons/challenge/answer')
+@login_required
+@limited('lesson-challenge-answer',120,60)
+def lesson_challenge_answer():
+    u=current_user(); d=request.get_json(silent=True) or {}; token=str(d.get('token',''))[:64]
+    try: answer_id=int(d.get('answer_id',0) or 0)
+    except (TypeError,ValueError): return jsonify(error='Đáp án không hợp lệ.'),400
+    row=LessonChallenge.query.filter_by(token=token,user_id=u.id).first(); now=datetime.now(timezone.utc)
+    if not row or row.completed or row.expires_at<now:return jsonify(error='Phiên mini game đã hết hạn. Hãy bắt đầu lại.'),400
+    questions=json.loads(row.payload or '[]'); idx=int(row.current_index or 0)
+    if idx>=len(questions):
+        row.completed=True; db.session.commit(); return jsonify(lesson_challenge_public(row))
+    q=questions[idx]; correct=(answer_id==int(q.get('answer_id')))
+    if correct: row.correct_count=int(row.correct_count or 0)+1
+    row.current_index=idx+1
+    finished=row.current_index>=len(questions)
+    result={'correct':correct,'correct_id':int(q.get('answer_id')),'correct_text':'','finished':finished}
+    if finished:
+        row.completed=True
+        score=round((row.correct_count or 0)*100/max(1,len(questions)))
+        progress=LessonProgress.query.filter_by(user_id=u.id,language=row.language,level=row.level,lesson_number=row.lesson_number).first()
+        if not progress:
+            progress=LessonProgress(user_id=u.id,language=row.language,level=row.level,lesson_number=row.lesson_number); db.session.add(progress)
+        first=not bool(progress.completed)
+        progress.attempts=int(progress.attempts or 0)+1
+        progress.best_score=max(int(progress.best_score or 0),score)
+        progress.completed=bool(score>=60 or progress.completed)
+        progress.updated_at=now
+        earned=25 if first and progress.completed else (8 if score>=80 else 0)
+        if earned: u.xp+=earned; record_activity(u.id,xp=earned)
+        if first and progress.completed: register_completed_lesson(u.id)
+        audit('lesson_mini_game_complete',f'{row.language}/{row.level}/{row.lesson_number}; score={score}; xp={earned}')
+        sync_badges(u)
+        result.update({'score':score,'passed':progress.completed,'earned_xp':earned,'xp':u.xp})
+    db.session.commit()
+    result.update(lesson_challenge_public(row))
+    return jsonify(result)
 
 @app.post('/api/lessons/<int:number>/complete')
 @login_required
@@ -1235,6 +1348,7 @@ def seed():
     for user in User.query.all(): security_state(user.id); profile_setting(user.id)
     GameChallenge.query.filter(GameChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     ReviewChallenge.query.filter(ReviewChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
+    LessonChallenge.query.filter(LessonChallenge.expires_at < datetime.now(timezone.utc)-timedelta(days=1)).delete(synchronize_session=False)
     db.session.commit()
 
 with app.app_context(): seed()

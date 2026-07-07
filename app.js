@@ -1494,12 +1494,83 @@ async function loadLessons(){
   grid.innerHTML=d.items.map(x=>`<button class="lesson-node ${x.completed?'done':''} ${!x.unlocked?'locked':''}" data-lesson="${x.number}" ${!x.unlocked?'disabled':''}><span>${x.completed?'✓':x.number}</span><div><b>Bài ${x.number}: ${escapeHtml(x.title)}</b><small>${x.word_count} từ · Điểm tốt nhất ${x.best_score}%</small></div><i data-lucide="${x.unlocked?'chevron-right':'lock'}"></i></button>`).join('');
   grid.querySelectorAll('[data-lesson]').forEach(b=>b.onclick=()=>openLesson(Number(b.dataset.lesson))); refreshIcons();
 }
-async function openLesson(number){
-  const langEl=document.querySelector('#lessonLanguage'),levelEl=document.querySelector('#lessonLevel'),box=document.querySelector('#lessonPlayer'); if(!langEl||!levelEl||!box)return; const lang=langEl.value,level=levelEl.value; const d=await api(`/api/lessons/${number}?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}`);
-   box.classList.remove('hidden'); box.innerHTML=`<div class="lesson-player-head"><h3>Bài ${number}: ${escapeHtml(d.title)}</h3><button class="btn btn-outline" id="closeLessonPlayer">Đóng</button></div><div class="lesson-word-list">${d.items.map(w=>`<article><button data-speak="${escapeAttribute(w.word)}"><i data-lucide="volume-2"></i></button><div><b>${escapeHtml(w.word)}</b><small>${escapeHtml(w.pronunciation||'')}</small><p>${escapeHtml(w.meaning)}</p></div></article>`).join('')}</div><div class="lesson-finish"><label>Điểm tự đánh giá (0–100)</label><input id="lessonScore" type="number" min="0" max="100" value="80"><button id="completeLessonBtn" class="btn btn-primary">Hoàn thành bài</button><span id="lessonResult"></span></div>`;
-  box.querySelector('#closeLessonPlayer').onclick=()=>box.classList.add('hidden'); box.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak));
-  box.querySelector('#completeLessonBtn').onclick=async()=>{const score=Number(box.querySelector('#lessonScore').value||0);const r=await api(`/api/lessons/${number}/complete`,{method:'POST',body:JSON.stringify({language:lang,level,score})});box.querySelector('#lessonResult').textContent=r.completed?`Đã hoàn thành! +${r.earned_xp} XP`:'Cần ít nhất 60 điểm.';await loadLessons();await refreshUser();await loadDashboardSummary();}; refreshIcons(); box.scrollIntoView({behavior:'smooth'});
+function lessonWordCard(w){
+  return `<article class="lesson-word-card"><button class="icon-btn" data-speak="${escapeAttribute(w.word)}" type="button" aria-label="Nghe phát âm"><i data-lucide="volume-2"></i></button><div><b>${escapeHtml(w.word)}</b><small>${escapeHtml(w.pronunciation||'')}</small><p>${escapeHtml(w.meaning)}</p></div></article>`;
 }
+
+let activeLessonChallenge=null;
+
+function renderLessonChallenge(box, data){
+  const q=data.question;
+  if(!q){
+    const passed=data.passed || data.score>=60;
+    box.querySelector('#lessonMiniGame').innerHTML=`<div class="lesson-result-card ${passed?'passed':'retry'}"><span class="lesson-result-icon">${passed?'🎉':'💪'}</span><h3>${passed?'Hoàn thành bài học!':'Cần luyện thêm một chút'}</h3><p>Điểm: <b>${data.score||0}%</b> • Đúng ${data.correct||0}/${data.total||0} câu ${data.earned_xp?`• +${data.earned_xp} XP`:''}</p><button id="restartLessonGame" class="btn btn-primary" type="button">Chơi lại mini game</button></div>`;
+    box.querySelector('#restartLessonGame')?.addEventListener('click',()=>startLessonChallenge(activeLessonChallenge.number));
+    loadLessons().catch(()=>{}); refreshUser().catch(()=>{}); loadDashboardSummary().catch(()=>{});
+    return;
+  }
+  box.querySelector('#lessonMiniGame').innerHTML=`
+    <div class="lesson-game-head"><span>Câu ${data.index}/${data.total}</span><strong>${escapeHtml(q.title||'Mini game')}</strong></div>
+    <div class="lesson-game-prompt"><b>${escapeHtml(q.prompt)}</b><small>${escapeHtml(q.prompt_sub||'')}</small></div>
+    <div class="lesson-game-options">${(q.options||[]).map(o=>`<button type="button" data-lesson-answer="${o.id}">${escapeHtml(o.text)}</button>`).join('')}</div>
+    <div id="lessonGameMessage" class="lesson-game-message"></div>`;
+  box.querySelectorAll('[data-lesson-answer]').forEach(btn=>btn.addEventListener('click',()=>answerLessonChallenge(Number(btn.dataset.lessonAnswer))));
+  refreshIcons();
+}
+
+async function startLessonChallenge(number){
+  const lang=document.querySelector('#lessonLanguage')?.value||'english';
+  const level=document.querySelector('#lessonLevel')?.value||'A1';
+  const box=document.querySelector('#lessonPlayer'); if(!box)return;
+  const game=box.querySelector('#lessonMiniGame'); if(game) game.innerHTML='<div class="lesson-game-loading">Đang tạo mini game vui cho bài học...</div>';
+  try{
+    const data=await api(`/api/lessons/${number}/challenge/start`,{method:'POST',body:JSON.stringify({language:lang,level})});
+    activeLessonChallenge={token:data.token,number};
+    renderLessonChallenge(box,data);
+  }catch(e){ if(game) game.innerHTML=`<div class="lesson-game-message error">${escapeHtml(e.message)}</div>`; }
+}
+
+async function answerLessonChallenge(answerId){
+  if(!activeLessonChallenge?.token)return;
+  const box=document.querySelector('#lessonPlayer'); if(!box)return;
+  box.querySelectorAll('[data-lesson-answer]').forEach(b=>b.disabled=true);
+  const msg=box.querySelector('#lessonGameMessage'); if(msg)msg.textContent='Đang kiểm tra...';
+  try{
+    const data=await api('/api/lessons/challenge/answer',{method:'POST',body:JSON.stringify({token:activeLessonChallenge.token,answer_id:answerId})});
+    if(!data.finished && msg){ msg.textContent=data.correct?'Đúng rồi! 🎯':'Chưa đúng, thử câu tiếp theo nhé.'; }
+    if(data.correct) playUiSound('success'); else playUiSound('wrong');
+    setTimeout(()=>renderLessonChallenge(box,data), data.finished?250:650);
+  }catch(e){ if(msg)msg.textContent=e.message; }
+}
+
+async function openLesson(number){
+  const langEl=document.querySelector('#lessonLanguage'),levelEl=document.querySelector('#lessonLevel'),box=document.querySelector('#lessonPlayer');
+  if(!langEl||!levelEl||!box)return;
+  const lang=langEl.value,level=levelEl.value;
+  try{
+    const d=await api(`/api/lessons/${number}?language=${encodeURIComponent(lang)}&level=${encodeURIComponent(level)}`);
+    activeLessonChallenge={token:null,number};
+    box.classList.remove('hidden');
+    box.innerHTML=`
+      <div class="lesson-player-head">
+        <div><span class="section-kicker">BÀI ${number}</span><h3>${escapeHtml(d.title)}</h3><p>Học nhanh danh sách từ, nghe phát âm, rồi vượt mini game để mở bài tiếp theo.</p></div>
+        <button class="btn btn-outline" id="closeLessonPlayer" type="button">Đóng</button>
+      </div>
+      <div class="lesson-player-grid">
+        <section class="lesson-word-panel"><h4>1. Từ vựng trong bài</h4><div class="lesson-word-list">${d.items.map(lessonWordCard).join('')||'<p class="empty">Bài này chưa có từ vựng.</p>'}</div></section>
+        <section class="lesson-mini-panel"><h4>2. Mini game sau bài học</h4><p>Chọn đúng nghĩa hoặc chọn đúng từ. Đạt từ 60% để hoàn thành bài.</p><button id="startLessonMiniGame" class="btn btn-primary btn-large" type="button"><i data-lucide="sparkles"></i> Bắt đầu mini game</button><div id="lessonMiniGame" class="lesson-mini-game"></div></section>
+      </div>`;
+    box.querySelector('#closeLessonPlayer')?.addEventListener('click',()=>box.classList.add('hidden'));
+    box.querySelectorAll('[data-speak]').forEach(b=>b.addEventListener('click',()=>speak(b.dataset.speak)));
+    box.querySelector('#startLessonMiniGame')?.addEventListener('click',()=>startLessonChallenge(number));
+    refreshIcons();
+    box.scrollIntoView({behavior:'smooth'});
+  }catch(e){
+    box.classList.remove('hidden');
+    box.innerHTML=`<div class="surface-card"><p class="error-text">${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
 async function loadLeaderboard(){
   const period=document.querySelector('#leaderboardPeriod')?.value||'week'; const d=await api(`/api/leaderboard?period=${period}`); const box=document.querySelector('#leaderboardList');
   box.innerHTML=d.items.map(x=>`<article class="leader-row ${x.rank<=3?'top':''}"><span class="rank">${x.rank}</span><span class="avatar">${escapeHtml((x.name||'?').slice(0,1).toUpperCase())}</span><b>${escapeHtml(x.name)}</b><strong>${x.xp} XP</strong></article>`).join('')||'<p>Chưa có dữ liệu XP trong kỳ này.</p>';
@@ -1534,3 +1605,13 @@ setTimeout(()=>{if(currentUser)loadDashboardSummary()},1200);
 
 window.addEventListener('error',e=>console.error('LingoPlay runtime error:',e.error||e.message));
 window.addEventListener('unhandledrejection',e=>console.error('LingoPlay async error:',e.reason));
+
+
+// ===== UI BEST VERSION: ổn định giao diện, icon và trạng thái =====
+function setupFriendlyUiHints(){
+  document.body.classList.add('theme-bright-stable');
+  document.querySelectorAll('.nav-btn, .btn, .icon-btn, .speak, .learned-btn').forEach(el=>{
+    if(!el.hasAttribute('type') && el.tagName==='BUTTON') el.setAttribute('type','button');
+  });
+}
+window.addEventListener('DOMContentLoaded',setupFriendlyUiHints);
