@@ -7,7 +7,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, inspect
 from vocabulary_data import VOCABULARY, PHRASES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -591,6 +591,49 @@ def profile_setting(user_id):
         row=ProfileSetting(user_id=user_id)
         db.session.add(row); db.session.flush()
     return row
+
+
+def ensure_database_schema():
+    """Tạo bảng mới và bổ sung cột còn thiếu khi nâng cấp từ bản cũ.
+    Render/PostgreSQL không tự thêm cột khi chỉ dùng create_all(), nên hàm này
+    giúp giảm lỗi 500 sau mỗi lần nâng cấp code.
+    """
+    os.makedirs(os.path.join(BASE_DIR, 'data'), exist_ok=True)
+    db.create_all()
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        dialect = db.engine.dialect.name
+
+        def quote(name):
+            return '"{}"'.format(name) if dialect == 'postgresql' else name
+
+        def add_column(table, column, definition):
+            if table not in existing_tables:
+                return
+            columns = {c['name'] for c in inspector.get_columns(table)}
+            if column in columns:
+                return
+            if dialect == 'postgresql':
+                sql = f'ALTER TABLE {quote(table)} ADD COLUMN IF NOT EXISTS {quote(column)} {definition}'
+            else:
+                sql = f'ALTER TABLE {quote(table)} ADD COLUMN {quote(column)} {definition}'
+            app.logger.warning('Nâng cấp database: %s.%s', table, column)
+            db.session.execute(db.text(sql))
+            db.session.commit()
+
+        # Các cột từng được thêm ở những bản sau. Nếu DB cũ thiếu, web dễ lỗi đăng nhập/admin/học.
+        add_column('user', 'xp', 'INTEGER DEFAULT 0')
+        add_column('user', 'is_active', 'BOOLEAN DEFAULT TRUE')
+        add_column('user', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        add_column('word', 'pronunciation', "VARCHAR(255) DEFAULT ''")
+        add_column('word', 'example', "TEXT DEFAULT ''")
+        add_column('word', 'topic', "VARCHAR(100) DEFAULT 'general'")
+        add_column('word', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        add_column('phrase', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.warning('Không thể tự nâng cấp database, nhưng web vẫn tiếp tục chạy: %s', exc)
 
 def record_activity(user_id, seconds=0, lessons=0, xp=0):
     row=daily_activity(user_id)
@@ -1331,7 +1374,7 @@ def admin_reset_user_password(uid):
     return jsonify(ok=True,message='Đã đặt mật khẩu mới và đăng xuất tài khoản khỏi các thiết bị cũ.')
 
 def seed():
-    os.makedirs(os.path.join(BASE_DIR,'data'),exist_ok=True); db.create_all()
+    ensure_database_schema()
     admin_email=os.getenv('ADMIN_EMAIL','').strip().lower(); admin_pw=os.getenv('ADMIN_PASSWORD','')
     if admin_email and admin_pw and not User.query.filter_by(email=admin_email).first():
         if password_is_strong(admin_pw): db.session.add(User(name='Quản trị viên',email=admin_email,password_hash=generate_password_hash(admin_pw),role='admin',xp=0))

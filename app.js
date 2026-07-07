@@ -41,6 +41,15 @@ async function api(url, options = {}, retryCsrf = true) {
 }
 
 function showView(name) {
+  // Bảo vệ giao diện: khách không thấy trang quản trị/hồ sơ riêng.
+  if (name === "admin" && currentUser?.role !== "admin") {
+    showToast("Chỉ quản trị viên mới mở được trang này.", "warning");
+    name = "home";
+  }
+  if (["profile", "learned", "lessons"].includes(name) && !currentUser) {
+    openAuth("login");
+    name = "home";
+  }
   const targetView = $(`#${name}View`);
   if (!targetView) {
     console.warn("Không tìm thấy view:", name);
@@ -57,6 +66,22 @@ function showView(name) {
   if (name === "admin") loadAdmin();
   if (name === "profile") renderProfile();
   if (name === "insights") loadLanguageInsights();
+}
+
+
+function showToast(message, type="info") {
+  let box = document.getElementById("appToast");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "appToast";
+    box.className = "app-toast";
+    document.body.appendChild(box);
+  }
+  box.textContent = message || "Có thông báo mới";
+  box.dataset.type = type;
+  box.classList.add("show");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => box.classList.remove("show"), 2600);
 }
 
 function fillLevels() {
@@ -402,20 +427,58 @@ function playGuestWelcomeOnce() {
   playIntroMusicOnce();
 }
 
-async function refreshUser() {
-  const data = await api("/api/auth/me");
-  currentUser = data.user;
+function applyAuthState() {
   const logged = !!currentUser;
-  $("#authBtn")?.classList.toggle("hidden", logged);
-  $("#logoutBtn")?.classList.toggle("hidden", !logged);
-  $("#userBadge")?.classList.toggle("hidden", !logged);
-  $$(".admin-only").forEach(x => x.classList.toggle("hidden", currentUser?.role !== "admin"));
-  $$(".auth-only").forEach(x => x.classList.toggle("hidden", !logged));
-  if (logged) {
-    if($("#userBadge")) $("#userBadge").textContent = `${currentUser.name} • ${currentUser.xp} XP`;
+  const isAdmin = currentUser?.role === "admin";
+  document.body.classList.toggle("is-auth", logged);
+  document.body.classList.toggle("is-guest", !logged);
+  document.body.classList.toggle("is-admin", isAdmin);
+  document.body.classList.toggle("is-user", logged && !isAdmin);
+
+  const authBtn = $("#authBtn");
+  const logoutBtn = $("#logoutBtn");
+  const userBadge = $("#userBadge");
+  if (authBtn) {
+    authBtn.classList.toggle("hidden", logged);
+    authBtn.hidden = logged;
+    authBtn.setAttribute("aria-hidden", logged ? "true" : "false");
+  }
+  if (logoutBtn) {
+    logoutBtn.classList.toggle("hidden", !logged);
+    logoutBtn.hidden = !logged;
+    logoutBtn.setAttribute("aria-hidden", logged ? "false" : "true");
+  }
+  if (userBadge) {
+    userBadge.classList.toggle("hidden", !logged);
+    userBadge.hidden = !logged;
+    if (logged) userBadge.textContent = `${currentUser.name} • ${Number(currentUser.xp || 0)} XP`;
+  }
+  $$(".admin-only").forEach(x => {
+    x.classList.toggle("hidden", !isAdmin);
+    x.hidden = !isAdmin;
+    x.setAttribute("aria-hidden", isAdmin ? "false" : "true");
+  });
+  $$(".auth-only").forEach(x => {
+    x.classList.toggle("hidden", !logged);
+    x.hidden = !logged;
+  });
+  if (!isAdmin && $("#adminView")?.classList.contains("active")) showView("home");
+}
+
+async function refreshUser() {
+  try {
+    const data = await api("/api/auth/me");
+    currentUser = data.user || null;
+  } catch (err) {
+    console.warn("Không thể kiểm tra phiên đăng nhập:", err);
+    currentUser = null;
+  }
+  applyAuthState();
+  if (currentUser) {
     renderProfile();
     renderAccountProgress();
   }
+  return currentUser;
 }
 
 function openAuth(mode="login") {
@@ -841,7 +904,11 @@ function escapeHtml(s="") {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
 
-$$(".nav-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
+$$(".nav-btn").forEach(b => b.onclick = () => {
+  const view = b.dataset.view;
+  if (view === "admin" && currentUser?.role !== "admin") return showView("home");
+  showView(view);
+});
 $$("[data-go]").forEach(b => b.onclick = () => showView(b.dataset.go));
 if ($("#authBtn")) $("#authBtn").onclick = () => openAuth("login");
 if ($("#soundToggle")) $("#soundToggle").onclick = toggleSound;
@@ -851,14 +918,15 @@ if ($("#loginTab")) $("#loginTab").onclick = () => switchAuth("login");
 if ($("#registerTab")) $("#registerTab").onclick = () => switchAuth("register");
 if ($("#loginForm")) $("#loginForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/login"); };
 if ($("#registerForm")) $("#registerForm").onsubmit = e => { e.preventDefault(); submitAuth(e.currentTarget, "/api/auth/register"); };
-if ($("#logoutBtn")) $("#logoutBtn").onclick = async () => { await api("/api/auth/logout",{method:"POST"}); currentUser=null; await refreshUser(); showView("home"); };
+if ($("#logoutBtn")) $("#logoutBtn").onclick = async () => {
+  try { await api("/api/auth/logout",{method:"POST"}); } catch(e) { console.warn(e); }
+  currentUser=null; csrfToken=""; applyAuthState(); showView("home");
+};
 if ($("#userBadge")) $("#userBadge").onclick = () => showView("profile");
 if ($("#profileLearnBtn")) $("#profileLearnBtn").onclick = () => showView("learn");
 if ($("#profileLogoutBtn")) $("#profileLogoutBtn").onclick = async () => {
-  await api("/api/auth/logout", {method:"POST"});
-  currentUser = null;
-  await refreshUser();
-  showView("home");
+  try { await api("/api/auth/logout", {method:"POST"}); } catch(e) { console.warn(e); }
+  currentUser = null; csrfToken=""; applyAuthState(); showView("home");
 };
 if ($('#changePasswordForm')) $('#changePasswordForm').onsubmit = async e => {
   e.preventDefault();
@@ -1034,6 +1102,7 @@ function refreshIcons() {
 document.addEventListener("DOMContentLoaded", () => {
   refreshIcons();
   updateSoundButton();
+  applyAuthState();
 
   const refreshInsightsBtn = document.getElementById("refreshInsightsBtn");
   if (refreshInsightsBtn) refreshInsightsBtn.addEventListener("click", () => loadLanguageInsights(true));
